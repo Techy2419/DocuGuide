@@ -26,6 +26,7 @@
     {
       "matches": ["<all_urls>", "file:///*"],
       "js": [
+        "utils/ai-manager.js",
         "content/form-detector.js",
         "content/form-guide.js",
         "content/content-script.js"

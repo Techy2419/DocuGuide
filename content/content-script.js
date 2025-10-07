@@ -27,11 +27,16 @@ if (window.docuGuideContentScriptLoaded) {
   function initializeFormGuide() {
     try {
       console.log('🚀 Initializing new Form Guide...');
+      console.log('🔍 Checking class availability:', {
+        FormGuide: typeof FormGuide,
+        FormDetector: typeof FormDetector,
+        AIManager: typeof AIManager
+      });
       
-      // Wait for classes to be available
+      // Wait for classes to be available with longer timeout
       if (typeof FormGuide === 'undefined' || typeof FormDetector === 'undefined' || typeof AIManager === 'undefined') {
         console.log('⏳ Waiting for classes to load...');
-        setTimeout(initializeFormGuide, 100);
+        setTimeout(initializeFormGuide, 500);
         return;
       }
       
@@ -81,6 +86,12 @@ if (window.docuGuideContentScriptLoaded) {
   async function handleScanForm(sendResponse) {
     try {
       console.log('🔍 Starting form scan...');
+      console.log('🔍 Current state:', {
+        windowFormGuide: !!window.formGuide,
+        FormGuide: typeof FormGuide,
+        FormDetector: typeof FormDetector,
+        AIManager: typeof AIManager
+      });
       
       // Check if form guide is available
       if (!window.formGuide) {
@@ -88,13 +99,20 @@ if (window.docuGuideContentScriptLoaded) {
         
         // Try to initialize if not available
         if (typeof FormGuide !== 'undefined' && typeof FormDetector !== 'undefined' && typeof AIManager !== 'undefined') {
+          console.log('✅ Classes available, creating FormGuide instance...');
           window.formGuide = new FormGuide();
         } else {
-          throw new Error('Form Guide classes not loaded. Please refresh the page.');
+          console.error('❌ Classes not available:', {
+            FormGuide: typeof FormGuide,
+            FormDetector: typeof FormDetector,
+            AIManager: typeof AIManager
+          });
+          throw new Error('Form Guide classes not loaded. Please refresh the page and try again.');
         }
       }
       
       // Perform the scan
+      console.log('🚀 Calling scanAndExplain...');
       await window.formGuide.scanAndExplain();
       sendResponse({ success: true, message: 'Form scan completed' });
       
