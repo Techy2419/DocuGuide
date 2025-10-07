@@ -1,0 +1,1632 @@
+DocuGuide - Complete Extension Development Plan
+Executive Summary
+DocuGuide is a Chrome Extension that helps immigrants, seniors, and non-native speakers understand and complete complex government forms and civic documents. Using Chrome's built-in AI APIs (Gemini Nano), all processing happens locally on the user's device - ensuring complete privacy for sensitive personal information.
+Core Value Proposition: Traansform Chrome into a private, multilingual civic assistant that makes official paperwork accessible to everyone.
+
+1. Target Audience & Problem Statement
+Primary Users
+Immigrants: Navigating visa applications, work permits, residency forms in non-native language
+Seniors: Struggling with Medicare, Social Security, tax forms with confusing terminology
+Low digital literacy users: First-time filers, students, anyone intimidated by official forms
+Multilingual users: Those who prefer reading instructions in their native language
+Core Problem
+Official forms use dense legal language, are often English-only, and require sensitive personal information that users are rightfully hesitant to share with third-party cloud services. Current solutions require uploading documents to external servers (privacy risk), paying for translation services (accessibility barrier), or relying on family members who may not understand either (unreliability).
+Why Chrome Built-in AI?
+Privacy is paramount when dealing with immigration documents, tax forms, medical paperwork, and legal notices. Chrome's Gemini Nano processes everything locally - no data leaves the device, no API costs, works offline.
+
+2. Technical Architecture
+APIs Used
+Summarizer API (Chrome 138 Stable)
+Translator API (Chrome 138 Stable)
+Language Detector API (Chrome 138 Stable)
+Prompt API (Chrome 138 Stable - Extensions)
+Extension Structure
+DocuGuide/
+├── manifest.json (Manifest V3)
+├── background/
+│   └── service-worker.js (API initialization, model management)
+├── content/
+│   └── content-script.js (Page interaction, text selection)
+├── sidebar/
+│   ├── sidebar.html
+│   ├── sidebar.js (React components)
+│   └── sidebar.css (TailwindCSS)
+├── popup/
+│   ├── popup.html (Quick settings)
+│   └── popup.js
+└── utils/
+    ├── api-manager.js (AI API wrapper)
+    └── storage.js (Chrome local storage for settings only)
+Data Flow
+User selects text on webpage
+Content script captures selection and context
+Service worker processes request through appropriate API
+Results rendered in sidebar with smooth animations
+No data stored except user preferences (language choice, theme)
+
+3. Feature Specifications
+Feature 1: Smart Summarization
+Purpose: Break down complex legal/governmental text into plain language explanations.
+User Flow:
+User highlights confusing paragraph/section on form
+Right-click → "Summarize with DocuQuide" or click sidebar button
+Extension shows:
+Brief summary (2-3 sentences)
+Key points as bullets
+Toggle to see original text side-by-side
+Technical Implementation:
+javascript
+// Summarizer API configuration
+const summarizer = await Summarizer.create({
+  type: 'key-points',
+  format: 'markdown',
+  length: 'short'
+});
+
+const summary = await summarizer.summarize(selectedText, {
+  context: 'This is from a government form or legal document'
+});
+API Parameters:
+Type: 'key-points' for bullet format
+Length: 'short' (configurable to 'medium' for longer text)
+Context: Include document type for better results
+Edge Cases:
+Text too short (<50 chars): Show warning "Select more text for better summary"
+Text too long (>5000 chars): Chunk into sections, summarize each
+API unavailable: Show offline message, suggest checking chrome://on-device-internals
+UI Design:
+Card-based layout with clear hierarchy
+"Read Aloud" button for audio output (Web Speech API)
+"Copy" button for easy pasting
+Smooth fade-in animation
+
+Feature 2: Real-Time Translation
+Purpose: Translate form instructions, notices, and user input into preferred language.
+User Flow:
+User selects text to translate
+Click "Translate" in sidebar
+Language auto-detected (or manually selected)
+Translation appears with toggle to switch back to original
+Language preference saved for session
+Technical Implementation:
+javascript
+// Auto-detect source language
+const detector = await LanguageDetector.create();
+const results = await detector.detect(selectedText);
+const sourceLanguage = results[0].detectedLanguage;
+
+// Create translator
+const translator = await Translator.create({
+  sourceLanguage: sourceLanguage,
+  targetLanguage: userPreferredLanguage, // from settings
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      updateProgressBar(e.loaded);
+    });
+  }
+});
+
+const translation = await translator.translate(selectedText);
+Supported Languages:
+Focus on high-need languages: Spanish, Chinese, Vietnamese, Arabic, Tagalog
+Check availability: await Translator.availability({sourceLanguage, targetLanguage})
+Gracefully handle unsupported pairs
+Language Pair Caching:
+Keep translator instances alive during session
+Destroy on tab close to free memory
+Show download progress on first use of language pair
+UI Design:
+Language selector dropdown (flags + names)
+Side-by-side comparison view (original | translated)
+Toggle button to switch between languages
+"Set as default" option for language preference
+
+Feature 3: AI Q&A Assistant
+Purpose: Answer user questions about form fields, requirements, and instructions.
+User Flow:
+User highlights form section or question
+Clicks "Ask AI" in sidebar
+Types question in natural language
+AI responds with contextual answer
+Follow-up questions supported in same session
+Technical Implementation:
+javascript
+// Create session with context
+const session = await LanguageModel.create({
+  systemPrompt: `You are a helpful assistant explaining government forms and civic documents. 
+                 Be clear, concise, and empathetic. 
+                 If you don't know something, say so - never guess about legal requirements.`,
+  temperature: 0.3, // Lower for more consistent answers
+  topK: 40
+});
+
+// Add selected text as context
+const response = await session.prompt(
+  userQuestion,
+  { context: `Form content: ${selectedText}` }
+);
+Prompt Engineering Strategy:
+System prompt establishes role and constraints
+Include form context with each question
+Use low temperature for factual accuracy
+Session persists for follow-up questions
+Example Interactions:
+"What does this field mean?" → Explains field purpose
+"What documents do I need?" → Lists required documentation
+"Can I leave this blank?" → Clarifies optional vs required
+"What happens if I make a mistake?" → Explains correction process
+Session Management:
+javascript
+// Monitor token usage
+console.log(`${session.inputUsage}/${session.inputQuota}`);
+
+// Clone session if approaching limit
+if (session.inputUsage > session.inputQuota * 0.8) {
+  session = await session.clone();
+}
+
+// Destroy on sidebar close
+window.addEventListener('unload', () => session.destroy());
+Safeguards:
+Never claim to provide legal advice (disclaimer in UI)
+Refuse questions about filling in false information
+Clear warning: "This is AI assistance, not official guidance"
+
+Feature 4: Writing Assistant (via Prompt API)
+Purpose: Help users write clear, grammatically correct responses for form fields and messages.
+User Flow:
+User types draft text in form field or sidebar
+Clicks "Check & Improve"
+AI suggests corrections and improvements
+User accepts/rejects suggestions
+Improved text ready to paste
+Technical Implementation:
+javascript
+// Proofreading via Prompt API
+const proofreadSession = await LanguageModel.create({
+  systemPrompt: `You are a grammar and writing assistant. 
+                 Check for spelling, grammar, and clarity. 
+                 Suggest improvements while keeping the user's voice.
+                 Format: List each issue and correction.`
+});
+
+const corrections = await proofreadSession.prompt(
+  `Check this text for errors and suggest improvements:\n\n${userText}`
+);
+
+// Tone adjustment
+const formalSession = await LanguageModel.create({
+  systemPrompt: 'Rewrite text to be more formal and professional for official documents.'
+});
+
+const rewritten = await formalSession.prompt(
+  `Make this more formal:\n\n${userText}`
+);
+Writing Modes:
+Check Grammar: Find spelling/grammar errors
+Make Formal: Professional tone for official correspondence
+Simplify: Break down complex sentences
+Expand: Add more detail/context
+Streaming for Real-Time Feedback:
+javascript
+const stream = session.promptStreaming(prompt);
+for await (const chunk of stream) {
+  outputElement.textContent += chunk;
+  // Smooth typing effect
+}
+UI Design:
+Split view: Original | Improved
+Highlight changes with color coding
+Accept all / Review individually
+Word count indicator
+
+4. User Interface Design
+Design Principles (Learned from Winners)
+Mochi & Orma lessons:
+Simple, uncluttered interface
+Immediate visual feedback
+Smooth animations (no janky transitions)
+One-click actions
+Clear visual hierarchy
+Sidebar Layout
+┌─────────────────────────────┐
+│  DocuGuide         [×]    │
+├─────────────────────────────┤
+│                             │
+│  [Summarize] [Translate]    │
+│  [Ask AI]    [Check Text]   │
+│                             │
+│  ┌───────────────────────┐ │
+│  │                       │ │
+│  │   Results appear      │ │
+│  │   here with smooth    │ │
+│  │   animations          │ │
+│  │                       │ │
+│  └───────────────────────┘ │
+│                             │
+│  🔒 All processing local    │
+│  🌍 Language: English ▼     │
+└─────────────────────────────┘
+Color Scheme
+Primary: Trust blue (#2563EB) - conveys reliability
+Success: Soft green (#10B981) - positive feedback
+Background: Clean white with subtle shadows
+Text: High contrast for accessibility
+Accents: Warm orange for CTAs
+Typography
+Headers: System font (native feel)
+Body: Clear sans-serif, 16px minimum
+Code/Forms: Monospace for technical content
+Accessibility
+WCAG 2.1 AA compliance minimum
+Keyboard navigation (Tab, Enter, Esc)
+Screen reader friendly (ARIA labels)
+High contrast mode option
+Adjustable text size
+
+5. Privacy & Security Architecture
+Privacy-First Design
+Data Never Leaves Device:
+All AI processing via Chrome's built-in Gemini Nano
+No external API calls
+No user analytics or tracking
+No cloud storage
+What We Store (Chrome Local Storage Only):
+User language preference
+Theme choice (light/dark)
+Sidebar position preference
+Nothing else - no form content, no queries, no translations
+Privacy Indicators:
+Persistent badge: "🔒 100% Private"
+One-click data clear button
+Transparent about what happens to text
+Permissions Required:
+json
+{
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}
+Why These Permissions:
+activeTab: Access selected text on current page only
+storage: Save user preferences
+contextMenus: Right-click menu integration
+<all_urls>: Work on any website (government sites vary)
+
+6. Performance Optimization
+Model Download Management
+javascript
+// Check availability on install
+chrome.runtime.onInstalled.addListener(async () => {
+  const checks = await Promise.all([
+    Summarizer.availability(),
+    Translator.availability({ sourceLanguage: 'en', targetLanguage: 'es' }),
+    LanguageModel.availability()
+  ]);
+  
+  // Show onboarding if download needed
+  if (checks.some(status => status === 'downloadable')) {
+    chrome.tabs.create({ url: 'onboarding.html' });
+  }
+});
+Session Reuse
+Keep API sessions alive during active use
+Destroy sessions on idle (5min timeout)
+Clone sessions approaching token limit
+Cache translator instances per language pair
+Content Chunking
+javascript
+function chunkText(text, maxChunkSize = 4000) {
+  // Split on sentence boundaries
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const chunks = [];
+  let currentChunk = '';
+  
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChunkSize) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += sentence;
+    }
+  }
+  
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks;
+}
+Loading States
+Skeleton screens while AI processes
+Progress bars for model downloads
+Optimistic UI updates
+Smooth transitions (300ms animations)
+
+7. Error Handling & Edge Cases
+API Availability Checks
+javascript
+async function ensureAPIAvailable(apiType) {
+  const availability = await apiType.availability();
+  
+  switch(availability) {
+    case 'unavailable':
+      showError('AI features not supported on this device');
+      return false;
+    case 'downloadable':
+      showDownloadPrompt('Download AI model to use this feature?');
+      return false;
+    case 'downloading':
+      showProgress('Downloading AI model...');
+      return false;
+    case 'available':
+      return true;
+  }
+}
+Graceful Degradation
+Scenario
+User Experience
+Model not downloaded
+Show download prompt with size/time estimate
+Insufficient storage
+Link to chrome://settings/storage
+API error
+"Something went wrong. Try selecting less text."
+Unsupported language
+"Translation not available for this language pair"
+Token limit reached
+Auto-create new session, transparent to user
+No text selected
+Helpful tooltip: "Select text first"
+
+User Feedback
+Toast notifications for quick actions
+Detailed error messages with solutions
+Help button linking to support docs
+Feedback form for bug reports
+
+CHROME BUILT-IN AI DOCUMENTATION: 
+
+AND DEMOS ARE FOUND HERE: https://github.com/GoogleChromeLabs/web-ai-demos
+Built-in AI APIs
+bookmark_border
+
+Alexandra Klepper
+Published: August 27, 2024, Last updated: September 12, 2025
+Before you use these APIs, review the usage requirements.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+API status
+There are several built-in AI APIs available at different stages of development. Some APIs are in Chrome Stable, others are available to all developers in origin trials, and some are only available to Early Preview Program (EPP) participants.
+Join the EPP to get first access to the latest experimental APIs. This step is not required to join origin trials, use stable APIs, or access websites or extensions using built-in AI.
+API
+Explainer
+Web
+Extensions
+Chrome Status
+Intent
+Translator API
+MDN
+ Chrome 138
+ Chrome 138
+View
+Intent to Ship
+Language Detector API
+MDN
+ Chrome 138
+ Chrome 138
+View
+Intent to Ship
+Summarizer API
+MDN
+ Chrome 138
+ Chrome 138
+View
+Intent to Ship
+Writer API
+GitHub
+ Origin trial
+ Origin trial
+View
+Intent to Experiment
+Rewriter API
+GitHub
+ Origin trial
+ Origin trial
+View
+Intent to Experiment
+Prompt API
+GitHub
+ In Origin trial
+ Chrome 138
+View
+Intent to Experiment
+Proofreader API
+GitHub
+ Origin trial
+ Origin trial
+View
+Intent to Prototype
+
+Key Term: An explainer is a document that describes a proposed web platform feature or collection of features. As work progresses, explainers facilitate discussion and, hopefully, consensus around the approach and feature design. Explainers are updated as design progresses.
+Translator API
+The Translator API is available from Chrome 138 stable. Translate user-generated and dynamic content on request.
+Use cases
+Users can enter a request in their first language, which you can identify with the Language Detector API. Then, use the Translator API to convert the request to your business operating language and send it to a support agent.
+In a social network application, users can request a translation on-demand when a post appears on their timeline in a language they don't speak.
+Language Detector API
+The Language Detector API is available from Chrome 138 stable. You can use this API to detect the language of input text. This is a key part of the translation process, as you may not always know the input language for translation.
+Use cases
+Language detection has several use cases:
+Determining the unknown source language for a following translation to a known target language, so the user doesn't have to specify both.
+Labeling texts, for example, to improve screen reader pronunciation in online social networking sites.
+Summarizer API
+The Summarizer API is available from Chrome 138 stable. With this API, you can condense long-form content. Shorter content can be more accessible and useful to users.
+Use cases
+There are a number of use cases for summarization:
+Overview of a meeting transcript for those joining the meeting late or those who missed the meeting entirely.
+Key points from support conversations for customer relationship management.
+Sentence or paragraph-sized summaries of multiple product reviews.
+Key points from long articles, to help readers determine if the article is relevant.
+Generating draft titles for an article.
+Summarizing questions in a forum to help experts find those which are most relevant to their field of expertise.
+Writer and Rewriter APIs
+The Writer API helps you create new content that conforms to a specified writing task, while the Rewriter API helps revise and restructure text. Both APIs are part of the Writing Assistance APIs explainer.
+Help this proposal move to the next stage by indicating your support with a thumbs-up reaction or by commenting with details about your use cases and context.
+Use cases
+There are a number of use cases for writing and rewriting:
+Write based on an initial idea and optional context. For example, a formal email to a bank asking to increase the credit limit based on the context that you're a long-term customer.
+Refine existing text by making it longer or shorter, or changing the tone. For example, you could rewrite a short email so that it sounds more polite and formal.
+Do you have additional ideas for these APIs? Share them with us on GitHub.
+Prompt API
+With the Prompt API, origin trial participants can send natural language requests to Gemini Nano in Chrome.
+In Chrome Extensions
+With the Prompt API in Chrome Extensions, you can experiment in a real environment. Based on your findings, we can refine the API to better address real-world use cases.
+The Prompt API is available from Chrome 138 stable, only for Chrome Extensions.
+Proofreader API
+The Proofreader API is available in an origin trial. With this API, you can provide interactive proofreading for your users in your web application or Chrome Extension.
+Use cases
+You could use the Proofreader API for any of the following use cases:
+Correct a document the user is editing in their browser.
+Help your customers send grammatically correct chat messages.
+Edit comments on a blog post or forum.
+Provide corrections in note taking applications.
+
+Writer API
+bookmark_border
+
+Alexandra Klepper
+
+Thomas Steiner
+Published: May 20, 2025
+Explainer
+Web
+Extensions
+Chrome Status
+Intent
+GitHub
+ Origin trial
+ Origin trial
+View
+Intent to Experiment
+
+The Writer API helps you create new content that conforms to a specified writing task. The Writer API and the Rewriter API are part of the Writing Assistance APIs proposal.
+These partner APIs can help you improve content created by users.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+Use cases
+Write new content, based on your initial idea and optional context. This could be used to:
+Support users write any kind of content, like reviews, blog posts, or emails.
+Help users write better support requests.
+Draft an introduction for a series of work samples, to better capture certain skills.
+Is your use case missing? Join the early preview program to share your feedback.
+Get started
+Join the Writer API origin trial running in Chrome 137 to 142.
+Review the hardware requirements
+The following requirements exist for developers and the users who operate features using these APIs in Chrome. Other browsers may have different operating requirements.
+The Language Detector and Translator APIs work in Chrome on desktop. These APIs do not work on mobile devices. The Prompt API, Summarizer API, Writer API, Rewriter API, and Proofreader API work in Chrome when the following conditions are met:
+Operating system: Windows 10 or 11; macOS 13+ (Ventura and onwards); Linux; or ChromeOS (from Platform 16389.0.0 and onwards) on Chromebook Plus devices. Chrome for Android, iOS, and ChromeOS on non-Chromebook Plus devices are not yet supported by the APIs which use Gemini Nano.
+Storage: At least 22 GB of free space on the volume that contains your Chrome profile.Built-in models should be significantly smaller. The exact size may vary slightly with updates.
+GPU: Strictly more than 4 GB of VRAM.
+Network: Unlimited data or an unmetered connection.Key term: A metered connection is a data-limited internet connection. Wi-Fi and ethernet connections tend to be unmetered by default, while cellular connections are often metered.
+Gemini Nano's exact size may vary as the browser updates the model. To determine the current size, visit chrome://on-device-internals.
+Note: If the available storage space falls to less than 10 GB after the download, the model is removed from your device. The model redownloads once the requirements are met.
+Sign up for the origin trial
+The Writer API is available in a joint origin trial with the Rewriter API. To start using these APIs:
+Acknowledge Google's Generative AI Prohibited Uses Policy.
+Go to the Writer API origin trial.
+Click Register and fill out the form. In the Web origin field, provide your origin or extension ID, chrome-extension://YOUR_EXTENSION_ID.
+To submit, click Register.
+Copy the token provided, and add it to every participating web page on your origin or include it in your Extension manifest.
+Start using the Writer and Rewriter APIs.
+Learn more about how to get started with origin trials.
+Add support to localhost
+To access the Writer and Rewriter APIs on localhost during the origin trial, you must update Chrome to the latest version. Then, follow these steps:
+Go to chrome://flags/#writer-api-for-gemini-nano.
+Select Enabled.
+Click Relaunch or restart Chrome.
+Use the Writer API
+First, run feature detection to see if the browser supports these APIs.
+if ('Writer' in self) {
+  // The Writer API is supported.
+}
+
+The Writer API, and all other built-in AI APIs, are integrated in the browser. Gemini Nano is downloaded separately the first time any website uses a built-in AI API. In practice, if a user has already interacted with a built-in API, they have downloaded the model to their browser.
+To determine if the model is ready to use, call the asynchronous Writer.availability() function. If the response to availability() is downloadable, listen for download progress and inform the user, as the download may take time.
+const availability = await Writer.availability();
+
+To trigger model download and start the writer, check for user activation and call the Writer.create() function.
+const writer = await Writer.create({
+  monitor(m) {
+    m.addEventListener("downloadprogress", e => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  }
+});
+
+API functions
+The create() function lets you configure a new writer object. It takes an optional options object with the following parameters:
+tone: Writing tone can refer to the style, character, or attitude of the content. The value can be set to formal, neutral (default), or casual.
+format: The output formatting, with the allowed values markdown (default) and plain-text.
+length: The length of the output, with the allowed values short, medium (default), and long.
+sharedContext: When writing multiple outputs, a shared context can help the model create content better aligned with your expectations.
+Note: Once set, the parameters can't be changed. Create a new writer object if you need to modify the parameters.
+The following example demonstrates how to initiate a writer object:
+const options = {
+  sharedContext: 'This is an email to acquaintances about an upcoming event.',
+  tone: 'casual',
+  format: 'plain-text',
+  length: 'medium',
+};
+
+const available = await Writer.availability();
+let writer;
+if (available === 'unavailable') {
+  // The Writer API isn't usable.
+  return;
+}
+if (available === 'available') {
+  // The Writer API can be used immediately .
+  writer = await Writer.create(options);
+} else {
+  // The Writer can be used after the model is downloaded.
+  const writer = await Writer.create({
+    ...options,
+    monitor(m) {
+      m.addEventListener("downloadprogress", e => {
+        console.log(`Downloaded ${e.loaded * 100}%`);
+      });
+    }
+  });
+}
+
+Start writing
+There are two ways to output writing from the model: non-streaming and streaming.
+Non-streaming output
+With non-streaming writing, the model processes the input as a whole and then produces the output.
+To get a non-streaming output, call the asynchronous write() function. You must include a prompt for the content you want written. You can add an optional context to provide the model background information, which may help the model better meet your expectations for the output.
+// Non-streaming
+const writer = await Writer.create();
+const result = await writer.write(
+  "An inquiry to my bank about how to enable wire transfers on my account.", {
+    context: "I'm a longstanding customer",
+  },
+);
+
+Stream writing output
+Streaming offers results in real-time. The output updates continuously as the input is added and adjusted.
+To get a streaming writer, call the writeStreaming() function and iterate over the available segments of text in the stream. You can add an optional context to provide the model background information, which may help the model better meet your expectations for the output.
+// Streaming
+const writer = await Writer.create();
+const stream = writer.writeStreaming(
+  "An inquiry to my bank about how to enable wire transfers on my account.", {
+    context: "I'm a longstanding customer",
+  },
+);
+for await (const chunk of stream) {
+  composeTextbox.append(chunk);
+}
+
+Share context for multiple tasks
+You may want to use a writer to generate multiple pieces of content. In this case, it's useful to add sharedContext. For example, you may want to help reviewers give better feedback in comments.
+// Shared context and per writing task context
+const writer = await Writer.create({
+sharedContext: "This is for publishing on [popular website name], a business and employment-focused social media platform."
+});
+
+const stream = writer.writeStreaming(
+  "Write a blog post about how I love all this work on gen AI at Google!" +
+  "Mention that there's so much to learn and so many new things I can do!",
+  { context: " The request comes from someone working at a startup providing an e-commerce CMS solution."}
+);
+
+for await (const chunk of stream) {
+  composeTextbox.append(chunk);
+}
+
+Reuse a writer
+You can use the same writer to create multiple pieces of content.
+// Reuse a writer
+const writer = await Writer.create({ tone: "formal" });
+
+const reviews = await Promise.all(
+  Array.from(
+    document.querySelectorAll("#reviews > .review"),
+    (reviewEl) => writer.write(reviewEl.textContent)
+  ),
+);
+
+Stop the writer
+To end the writing process, abort the controller and destroy the writer.
+// Aborting a writer
+const controller = new AbortController();
+stopButton.onclick = () => controller.abort();
+
+const writer = await Writer.create({ signal: controller.signal });
+await writer.write(reviewEl.textContent, { signal: controller.signal });
+
+// Destroying a writer
+writer.destroy();
+
+Demo
+Permission Policy, iframes, and Web Workers
+By default, the Writer API is only available to top-level windows and to their same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permission Policy allow="" attribute:
+<!--
+  The hosting site at https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Writer API by
+  setting the `allow="writer"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="writer"></iframe>
+The Writer API isn't available in Web Workers. This is due to the complexity of establishi
+ Rewriter API
+bookmark_border
+
+Alexandra Klepper
+
+Thomas Steiner
+Published: May 20, 2025
+Explainer
+Web
+Extensions
+Chrome Status
+Intent
+GitHub
+ Origin trial
+ Origin trial
+View
+Intent to Experiment
+
+The Rewriter API helps you revise and restructure text. This API and the Writer API are part of the Writing Assistance APIs proposal.
+These APIs can help you improve content created by users.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+Use cases
+Refine existing text by making it longer or shorter, or changing the tone. For example, you could:
+Rewrite a short email so that it sounds more polite and formal.
+Suggest edits to customer reviews to help other customers understand the feedback or remove toxicity.
+Format content to meet the expectations of certain audiences.
+Is your use case missing? Join the early preview program to share your feedback.
+Get started
+Join the Rewriter API origin trial, running in Chrome 137 to 142.
+Review the hardware requirements
+The following requirements exist for developers and the users who operate features using these APIs in Chrome. Other browsers may have different operating requirements.
+The Language Detector and Translator APIs work in Chrome on desktop. These APIs do not work on mobile devices. The Prompt API, Summarizer API, Writer API, Rewriter API, and Proofreader API work in Chrome when the following conditions are met:
+Operating system: Windows 10 or 11; macOS 13+ (Ventura and onwards); Linux; or ChromeOS (from Platform 16389.0.0 and onwards) on Chromebook Plus devices. Chrome for Android, iOS, and ChromeOS on non-Chromebook Plus devices are not yet supported by the APIs which use Gemini Nano.
+Storage: At least 22 GB of free space on the volume that contains your Chrome profile.Built-in models should be significantly smaller. The exact size may vary slightly with updates.
+GPU: Strictly more than 4 GB of VRAM.
+Network: Unlimited data or an unmetered connection.Key term: A metered connection is a data-limited internet connection. Wi-Fi and ethernet connections tend to be unmetered by default, while cellular connections are often metered.
+Gemini Nano's exact size may vary as the browser updates the model. To determine the current size, visit chrome://on-device-internals.
+Note: If the available storage space falls to less than 10 GB after the download, the model is removed from your device. The model redownloads once the requirements are met.
+Sign up for the origin trial
+The Rewriter API is available in a joint origin trial with the Writer API. To start using these APIs:
+Acknowledge Google's Generative AI Prohibited Uses Policy.
+Go to the Rewriter API origin trial.
+Click Register and fill out the form. In the Web origin field, provide your origin or extension ID, chrome-extension://YOUR_EXTENSION_ID.
+To submit, click Register.
+Copy the token provided, and add it to every participating web page on your origin or include it in your Extension manifest.
+Start using the Rewriter API.
+Learn more about how to get started with origin trials.
+Add support to localhost
+To access the Writer and Rewriter APIs on localhost during the origin trial, you must update Chrome to the latest version. Then, follow these steps:
+Go to chrome://flags/#rewriter-api-for-gemini-nano.
+Select Enabled.
+Click Relaunch or restart Chrome.
+Use the Rewriter API
+First, run feature detection to see if the browser supports these APIs.
+if ('Rewriter' in self) {
+  // The Rewriter API is supported.
+}
+
+The Rewriter API, and all other built-in AI APIs, are integrated in the browser. Gemini Nano is downloaded separately the first time any website uses a built-in AI API. In practice, if a user has already interacted with a built-in API, they have downloaded the model to their browser.
+To determine if the model is ready to use, call the asynchronous Rewriter.availability() function. If the response to availability() was downloadable, listen for download progress and inform the user, as the download may take time.
+const availability = await Rewriter.availability();
+
+To trigger model download and start the rewriter, check for user activation and call the Rewriter.create() function.
+const rewriter = await Rewriter.create({
+  monitor(m) {
+    m.addEventListener("downloadprogress", e => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  }
+});
+
+API functions
+The create() function lets you configure a new rewriter object. It takes an optional options object with the following parameters:
+tone: Writing tone can refer to the style, character, or attitude of the content. The value can be set to more-formal, as-is (default), or more-casual.
+format: The output formatting, with the allowed values as-is (default), markdown, and plain-text.
+length: The length of the output, with the allowed values shorter, as-is (default), and longer.
+sharedContext: When rewriting multiple pieces of content, a shared context can help the model create content better aligned with your expectations.
+Note: Once set, the parameters can't be changed. Create a new rewriter object if you need to modify the parameters.
+The following example demonstrates how to initiate a rewriter object:
+const options = {
+  sharedContext: 'This is an email to acquaintances about an upcoming event.',
+  tone: 'more-casual',
+  format: 'plain-text',
+  length: 'shorter',
+};
+
+const available = await Rewriter.availability();
+let rewriter;
+if (available === 'unavailable') {
+  // The Rewriter API isn't usable.
+  return;
+}
+if (available === 'available') {
+  // The Rewriter API can be used immediately .
+  rewriter = await Rewriter.create(options);
+} else {
+  // The Rewriter can be used after the model is downloaded.
+  rewriter = await Rewriter.create(options);
+  rewriter.addEventListener('downloadprogress', (e) => {
+    console.log(e.loaded, e.total);
+  });
+}
+
+Start rewriting
+There are two ways to output content from the model: non-streaming and streaming.
+Non-streaming output
+With non-streaming rewriting, the model processes the input as a whole and then produces the output.
+To get a non-streaming output, call the asynchronous rewrite() function. You must include the initial text that you want to be rewritten. You can add an optional context to provide the model background information, which may help the model better meet your expectations for the output.
+// Non-streaming
+const rewriter = await Rewriter.create({
+  sharedContext: "A review for the Flux Capacitor 3000 from TimeMachines Inc."
+});
+const result = await rewriter.rewrite(reviewEl.textContent, {
+  context: "Avoid any toxic language and be as constructive as possible."
+});
+
+Stream rewriting output
+Streaming offers results in real-time. The output updates continuously as the input is added and adjusted.
+To get a streaming rewriter, call the rewriteStreaming() function and iterate over the available segments of text in the stream. You can add an optional context to provide the model background information, which may help the model better meet your expectations for the output.
+const rewriter = await Rewriter.create({
+  sharedContext: "A review for the Flux Capacitor 3000 from TimeMachines Inc."
+});
+
+const stream = rewriter.rewriteStreaming(reviewEl.textContent, {
+  context: "Avoid any toxic language and be as constructive as possible.",
+  tone: "more-casual",
+});
+
+for await (const chunk of stream) {
+  composeTextbox.append(chunk);
+}
+
+Share context for multiple tasks
+You may want to use a rewriter to generate multiple pieces of content. In this case, it's useful to add sharedContext. For example, you may want to help reviewers give better feedback in comments.
+// Shared context and per writing task context
+const rewriter = await Rewriter.create({
+  sharedContext: "This is for publishing on [popular website name], a business and employment-focused social media platform."
+});
+
+const stream = rewriter.rewriteStreaming(
+  "Love all this work on generative AI at Google! So much to learn and so many new things I can do!",
+  {
+    context: "The request comes from someone working at a startup providing an e-commerce CMS solution.",
+    tone: "more-casual",
+  }
+);
+
+for await (const chunk of stream) {
+  composeTextbox.append(chunk);
+}
+
+Reuse a rewriter
+You can use the same rewriter to edit multiple pieces of content. This may be particularly useful if adding the rewriter to a feedback or commenting tool, to help writers offer productive and helpful feedback.
+// Reusing a rewriter
+const rewriter = await Rewriter.create({
+  sharedContext: "A review for the Flux Capacitor 3000 from TimeMachines Inc."
+});
+
+const rewrittenReviews = await Promise.all(
+  Array.from(
+    document.querySelectorAll("#reviews > .review"),
+    (reviewEl) => rewriter.rewrite(reviewEl.textContent, {
+      context: "Avoid any toxic language and be as constructive as possible.",
+      tone: "more-casual",
+    })
+  ),
+);
+
+Stop the rewriter
+To end the rewriting process, abort the controller and destroy the rewriter.
+// Stop a rewriter
+const controller = new AbortController();
+stopButton.onclick = () => controller.abort();
+
+const rewriter = await Rewriter.create({ signal: controller.signal });
+await rewriter.rewrite(reviewEl.textContent, { signal: controller.signal });
+
+// Destroy a rewriter
+rewriter.destroy();
+
+Demo
+Permission Policy, iframes, and Web Workers
+By default, the Rewriter API is only available to top-level windows and to their same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permission Policy allow="" attribute:
+<!--
+  The hosting site at https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Rewriter API by
+  setting the `allow="rewriter"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="rewriter"></iframe>
+
+The Rewriter API isn't available in Web Workers. This is due to the complexity of establishing a responsible document for each worker, in order to check the Permissions Policy status.
+Translation with built-in AI
+bookmark_border
+
+Thomas Steiner
+
+Alexandra Klepper
+Published: November 13, 2024, Last updated: May 20, 2025
+Browser Support
+ 138
+ x
+ x
+ x
+Use the Translator API in Chrome to translate text with AI models provided in the browser.
+Your website may already offer website content in multiple languages. With the Translator API, users can write in their first language. For example, users can participate in support chats in their first language, and your site can translate their message into your support agents' first language, before the message leaves the user's device. This creates a smooth, fast, and inclusive experience for all users.
+Translation of web content typically requires using a cloud service. First, the source content is uploaded to a server, which runs the translation to a target language, then the resulting text is downloaded and returned to the user. When the content is ephemeral and doesn't warrant saving to a database, client-side translation saves time and cost over a hosted translation service.
+Get started
+Run feature detection to see if the browser supports the Translator API.
+if ('Translator' in self) {
+  // The Translator API is supported.
+}
+
+While you always know the target language for translations, you may not always know the source language. In such cases, you can use the Language Detector API.
+Model download
+The Translator API uses an expert model trained to generate high-quality translations. The API is built into Chrome, and the model is downloaded the first time a website uses this API.
+To determine if the model is ready to use, call the asynchronous Translator.availability() function. If the response to availability() is downloadable, listen for download progress to inform the user of its progress, as it may take time.
+Note: The Translator API hides the download status of specific language pairs, to protect user privacy. Instead, all language pairs are reported as downloadable until individual sites create a translator for a given pair.
+Check language pair support
+Translation is managed with language packs, downloaded on demand. A language pack is like a dictionary for a given language.
+sourceLanguage: The current language for the text.
+targetLanguage: The final language the text should be translated into.
+Use BCP 47 language short codes as strings. For example, 'es' for Spanish or 'fr' for French.
+const translatorCapabilities = await Translator.availability({
+  sourceLanguage: 'es',
+  targetLanguage: 'fr',
+});
+// 'available'
+
+Listen for model download progress with the downloadprogress event:
+const translator = await Translator.create({
+  sourceLanguage: 'es',
+  targetLanguage: 'fr',
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  },
+});
+
+If the download fails, then downloadprogress events stop and the ready promise is rejected.
+Create and run the translator
+To create a translator, check for user activation and call the asynchronous create() function. The Translator create() function requires an options parameter with two fields, one for the sourceLanguage and one for the targetLanguage.
+// Create a translator that translates from English to French.
+const translator = await Translator.create({
+  sourceLanguage: 'en',
+  targetLanguage: 'fr',
+});
+
+Once you have a translator, call the asynchronous translate().
+await translator.translate('Where is the next bus stop, please?');
+// "Où est le prochain arrêt de bus, s'il vous plaît ?"
+
+Alternatively, if you need to deal with longer texts, you can also use the streaming version of the API and call translateStreaming().
+const stream = translator.translateStreaming(longText);
+for await (const chunk of stream) {
+  console.log(chunk);
+}
+
+Sequential translations
+Translations are processed sequentially. If you send large amounts of text to be translated, subsequent translations are blocked until the earlier ones complete.
+For the best response to your requests, chunk them together and add a loading interface, such as a spinner, to convey that translation is ongoing.
+Demo
+You can see the Translator API, used in combination with the Language Detector API, in the Translator and Language Detector API playground.
+Permission Policy, iframes, and Web Workers
+By default, the Translator API is only available to top-level windows and to same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permissions Policy allow="" attribute:
+<!--
+  The host site https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Translator API by
+  setting the `allow="translator"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="translator"></iframe>
+
+The Translator API isn't available in Web Workers, due to the complexity of establishing a responsible document for each worker, in order to check the Permissions Policy status.
+Language detection with built-in AI
+bookmark_border
+
+Thomas Steiner
+Published: September 24, 2024, Last updated: May 20, 2025
+Browser Support
+ 138
+ x
+ x
+ x
+Source
+Before translating text from one language to another, you must first determine what language is used in the given text. Previously, translation required uploading the text to a cloud service, performing the translation on the server, then downloading the results.
+The Language Detector API works client-side, which means you can protect user privacy. While it's possible to ship a specific library which does this, it would require additional resources to download.
+When to use language detection
+The Language Detector API is primarily useful in the following scenarios:
+Determine the language of input text, so it can be translated.
+Determine the language of input text, so the correct model can be loaded for language-specific tasks, such as toxicity detection.
+Determine the language of input text, so it can be labeled correctly, for example, in online social networking sites.
+Determine the language of input text, so an app's interface can be adjusted accordingly. For example, on a Belgian site to only show the interface relevant to users who speak French.
+Get started
+Run feature detection to see if the browser supports the Language Detector API.
+if ('LanguageDetector' in self) {
+  // The Language Detector API is available.
+}
+
+Model download
+Language detection depends on a model that is fine-tuned for the specific task of detecting languages. While the API is built in the browser, the model is downloaded on-demand the first time a site tries to use the API. In Chrome, this model is very small by comparison with other models. It might already be present, as this model is used by other Chrome features.
+To determine if the model is ready to use, call the asynchronous LanguageDetector.availability() function. If the response to availability() was downloadable, listen for download progress and inform the user, as the download may take time.
+To trigger the download and instantiate the language detector, check for user activation. Then, call the asynchronous LanguageDetector.create() function.
+const detector = await LanguageDetector.create({
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  },
+});
+
+Run the language detector
+The Language Detector API uses a ranking model to determine which language is most likely used in a given piece of text. Ranking is a type of machine learning, where the objective is to order a list of items. In this case, the Language Detector API ranks languages from highest to lowest probability.
+Note: The Language Detector API is trained on a set of languages, which is not wholly inclusive of every language that exists. This means the API cannot detect every language with complete accuracy. From Chrome 132, you can check if a given language is available for detection.
+The detect() function can return either the first result, the likeliest answer, or iterate over the ranked candidates with the level of confidence. This is returned as a list of {detectedLanguage, confidence} objects. The confidence level is expressed as a value between 0.0 (lowest confidence) and 1.0 (highest confidence).
+const someUserText = 'Hallo und herzlich willkommen!';
+const results = await detector.detect(someUserText);
+for (const result of results) {
+  // Show the full list of potential languages with their likelihood, ranked
+  // from most likely to least likely. In practice, one would pick the top
+  // language(s) that cross a high enough threshold.
+  console.log(result.detectedLanguage, result.confidence);
+}
+// (Output truncated):
+// de 0.9993835687637329
+// en 0.00038279531872831285
+// nl 0.00010798392031574622
+// ...
+
+Caution: Very short phrases and single words should be avoided, as the accuracy of the results will be low. If you commonly work with shorter text, experiment with your priority languages, review the reported confidence, and return the result as unknown when the confidence is too low.
+API playground
+Experiment with the Language Detector API in our API playground. Enter text written in different languages in the textarea.
+Permission Policy, iframes, and Web Workers
+By default, the Language Detector API is only available to top-level windows and to their same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permission Policy allow="" attribute:
+<!--
+  The hosting site at https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Language Detector API by
+  setting the `allow="language-detector"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="language-detector"></iframe>
+
+The Language Detector API isn't available in Web Workers. This is due to the complexity of establishing a responsible document for each worker in order to check the Permissions Policy status.
+Summarize with built-in AI
+bookmark_border
+
+Thomas Steiner
+Published: November 11, 2024, Last updated: July 30, 2025
+Browser Support
+ 138
+ 
+ x
+ x
+You can offer your users the ability to distill lengthy articles, complex documents, or even lively chat conversations into concise and insightful summaries.
+The Summarizer API can be used to generate different types of summaries in varied lengths and formats, such as sentences, paragraphs, bullet point lists, and more. We believe this API is useful in the following scenarios:
+Summarizing the key points of an article or a chat conversation.
+Suggesting titles and headings for articles.
+Creating a concise and informative summary of a lengthy text.
+Generating a teaser for a book based on a book review.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+Get started
+The Summarizer API is available from Chrome 138 stable.
+Before you use this API, acknowledge Google's Generative AI Prohibited Uses Policy.
+Run feature detection to see if the browser supports the Summarizer API.
+if ('Summarizer' in self) {
+  // The Summarizer API is supported.
+}
+
+Review the hardware requirements
+The following requirements exist for developers and the users who operate features using these APIs in Chrome. Other browsers may have different operating requirements.
+The Language Detector and Translator APIs work in Chrome on desktop. These APIs do not work on mobile devices. The Prompt API, Summarizer API, Writer API, Rewriter API, and Proofreader API work in Chrome when the following conditions are met:
+Operating system: Windows 10 or 11; macOS 13+ (Ventura and onwards); Linux; or ChromeOS (from Platform 16389.0.0 and onwards) on Chromebook Plus devices. Chrome for Android, iOS, and ChromeOS on non-Chromebook Plus devices are not yet supported by the APIs which use Gemini Nano.
+Storage: At least 22 GB of free space on the volume that contains your Chrome profile.Built-in models should be significantly smaller. The exact size may vary slightly with updates.
+GPU: Strictly more than 4 GB of VRAM.
+Network: Unlimited data or an unmetered connection.Key term: A metered connection is a data-limited internet connection. Wi-Fi and ethernet connections tend to be unmetered by default, while cellular connections are often metered.
+Gemini Nano's exact size may vary as the browser updates the model. To determine the current size, visit chrome://on-device-internals.
+Note: If the available storage space falls to less than 10 GB after the download, the model is removed from your device. The model redownloads once the requirements are met.
+Model download
+The Summarizer API uses a model trained to generate high-quality summaries. The API is built into Chrome, and Gemini Nano is the model downloaded the first time a website uses this API.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+To determine if the model is ready to use, call the asynchronous Summarizer.availability() function. If the response to availability() is downloadable, listen for download progress to inform the user of its progress, as it may take time.
+const availability = await Summarizer.availability();
+
+To trigger the model download and create the summarizer, check for user activation, then call the asynchronous Summarizer.create() function.
+// Proceed to request batch or streaming summarization
+const summarizer = await Summarizer.create({
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  }
+});
+
+API functions
+The create() function lets you configure a new summarizer object to your needs. It takes an optional options object with the following parameters:
+sharedContext: Additional shared context that can help the summarizer.
+type: The type of the summarization, with the allowed values key-points (default), tldr, teaser, and headline. See the following table for details.
+format: The format of the summarization, with the allowed values markdown (default) and plain-text.
+length: The length of the summarization, with the allowed values short, medium (default), and long. The meanings of these lengths vary depending on the type requested. For example, in Chrome's implementation, a short key-points summary consists of three bullet points, and a short summary is one sentence.
+Once set, the parameters can't be changed. Create a new summarizer object if you need to make modifications to the parameters.
+The following table demonstrates the different types of summaries and their corresponding lengths. The lengths represent the maximum possible value, as sometimes, the results can be shorter.
+Type
+Meaning
+Length
+"tldr"
+Summary should be short and to the point, providing a quick overview of the input, suitable for a busy reader.
+
+short
+1 sentence
+medium
+3 sentences
+long
+5 sentences
+
+
+
+
+
+"teaser"
+Summary should focus on the most interesting or intriguing parts of the input, designed to draw the reader in to read more.
+
+short
+1 sentence
+medium
+3 sentences
+long
+5 sentences
+
+
+
+
+
+"key-points"
+Summary should extract the most important points from the input, presented as a bulleted list.
+
+short
+3 bullet points
+medium
+5 bullet points
+long
+7 bullet points
+
+
+
+
+
+"headline"
+Summary should effectively contain the main point of the input in a single sentence, in the format of an article headline.
+
+short
+12 words
+medium
+17 words
+long
+22 words
+
+
+
+
+
+
+For example, you could initialize a summarizer to output a medium length of key points in Markdown.
+const options = {
+  sharedContext: 'This is a scientific article',
+  type: 'key-points',
+  format: 'markdown',
+  length: 'medium',
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  }
+};
+
+const availability = await Summarizer.availability();
+if (availability === 'unavailable') {
+  // The Summarizer API isn't usable.
+  return;
+}
+
+// Check for user activation before creating the summarizer
+if (navigator.userActivation.isActive) {
+  const summarizer = await Summarizer.create(options);
+}
+
+There are two ways to run the summarizer: streaming and batch (non-streaming).
+Batch summarization
+With batch summarization, the model processes the input as a whole and then produces the output.
+To get a batch summary, call the summarize() function. The first argument is the text that you want to summarize. The second, optional argument is an object with a context field. This field lets you add background details that might improve the summarization.
+const longText = document.querySelector('article').innerHTML;
+const summary = await summarizer.summarize(longText, {
+  context: 'This article is intended for a tech-savvy audience.',
+});
+
+Tip: Remove any unnecessary data, including HTML markup, when summarizing. For content present on a webpage, you can use the innerText property of an HTML element, as this property represents only the rendered text content of an element and its descendants.
+Streaming summarization
+Streaming summarization offers results in real-time. The output updates continuously as the input is added and adjusted. To get a streaming summary, call summarizeStreaming() instead of summarize().
+const longText = document.querySelector('article').innerHTML;
+const stream = summarizer.summarizeStreaming(longText, {
+  context: 'This article is intended for junior developers.',
+});
+for await (const chunk of stream) {
+  console.log(chunk);
+}
+
+Demo
+You can try the Summarizer API in the Summarizer API Playground.
+Permission Policy, iframes, and Web Workers
+By default, the Summarizer API is only available to top-level windows and to their same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permission Policy allow="" attribute:
+<!--
+  The hosting site at https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Summarizer API by
+  setting the `allow="summarizer"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="summarizer"></iframe>
+
+The Summarizer API isn't available in Web Workers for now. This is due to the complexity of establishing a responsible document for each worker, in order to check the Permissions Policy status.
+The Proofreader API
+bookmark_border
+
+Thomas Steiner
+
+Alexandra Klepper
+Published: September 12, 2025
+Explainer
+Web
+Extensions
+Chrome Status
+Intent
+GitHub
+ Origin trial
+ Origin trial
+View
+Intent to Prototype
+
+Proofreading is the process of looking for and correcting errors in grammar, spelling, and punctuation. Browsers and operating systems have increasingly offered proofreading to their composing tools, such as in Google Docs.
+With the Proofreader API, you can provide interactive proofreading to your web application or extension, with built-in AI. This API offers the following functions:
+Correction: Correct user inputs for grammar, spelling, and punctuation.
+Labels: Label each correction by the error type.
+Explanation: Defining what the error is or why the correct was necessary in plain language.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+Use cases
+There are many reasons you may want to use Proofreader API For example:
+Suggest corrections to forum messages, comments on articles, and emails, before the post is submitted.
+Provide corrections during active note-taking.
+Is your use case missing? Join the early preview program to share your feedback.
+Get started
+Join the Proofreader API origin trial, running in Chrome 141 to 145.
+Review the hardware requirements
+The following requirements exist for developers and the users who operate features using these APIs in Chrome. Other browsers may have different operating requirements.
+The Language Detector and Translator APIs work in Chrome on desktop. These APIs do not work on mobile devices. The Prompt API, Summarizer API, Writer API, Rewriter API, and Proofreader API work in Chrome when the following conditions are met:
+Operating system: Windows 10 or 11; macOS 13+ (Ventura and onwards); Linux; or ChromeOS (from Platform 16389.0.0 and onwards) on Chromebook Plus devices. Chrome for Android, iOS, and ChromeOS on non-Chromebook Plus devices are not yet supported by the APIs which use Gemini Nano.
+Storage: At least 22 GB of free space on the volume that contains your Chrome profile.Built-in models should be significantly smaller. The exact size may vary slightly with updates.
+GPU: Strictly more than 4 GB of VRAM.
+Network: Unlimited data or an unmetered connection.Key term: A metered connection is a data-limited internet connection. Wi-Fi and ethernet connections tend to be unmetered by default, while cellular connections are often metered.
+Gemini Nano's exact size may vary as the browser updates the model. To determine the current size, visit chrome://on-device-internals.
+Note: If the available storage space falls to less than 10 GB after the download, the model is removed from your device. The model redownloads once the requirements are met.
+Add support to localhost
+To access the Proofreader API on localhost during the origin trial, you must update Chrome to the latest version. Then, follow these steps:
+Go to chrome://flags/#proofreader-api-for-gemini-nano.
+Select Enabled.
+Click Relaunch or restart Chrome.
+Sign up for the origin trial
+To start using the Proofreader API, follow these steps:
+Acknowledge Google's Generative AI Prohibited Uses Policy.
+Go to the Proofreader API origin trial.
+Click Register and fill out the form. In the Web origin field, provide your origin or extension ID, chrome-extension://YOUR_EXTENSION_ID.
+To submit, click Register.
+Copy the token provided, and add it to every participating web page on your origin or include it in your Extension manifest.
+If you're building an Extension, follow the Extensions origin trial instructions
+Start using the Proofreader API.
+Learn more about how to get started with origin trials.
+Use the Proofreader API
+To determine if the model is ready to use, call Proofreader.availability(). If the response to availability() was "downloadable", listen for download progress and inform the user, as the download may take time.
+const options = {
+  expectedInputLanguages: ['en'],
+};
+const available = if (Proofreader.availability("downloadable") === true);
+
+To trigger the download and instantiate the proofreader, check for user activation. Then, call the asynchronous Proofreader.create() function.
+const session = await Proofreader.create({
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  },
+  ...options,
+});
+
+Create a Proofreader object
+To create a Proofreader, use the Proofreader.create() function.
+const proofreader = await Proofreader.create({
+  expectedInputLanguages: ["en"],
+  monitor(m) {
+    m.addEventListener("downloadprogress", e => {
+      console.log(Downloaded ${e.loaded * 100}%);
+    });
+  }
+};
+
+The create() method includes the following options:
+expectedInputLanguages: An array of expected input languages.
+The includeCorrectionTypes and includeCorrectionExplanation options from the explainer aren't supported.
+Start proofreading user text
+Call proofread() to get corrections for an input text:
+const proofreadResult = await proofreader.proofread(
+  'I seen him yesterday at the store, and he bought two loafs of bread.',
+);
+
+Corrections are a type of ProofreadResult. Find the fully corrected input in the corrected attribute and the list of corrections in the corrections array:
+let inputRenderIndex = 0;
+
+console.log(proofreadResult.correction);
+
+for (const correction of proofreadResult.corrections) {
+  // Render part of input that has no error.
+  if (correction.startIndex > inputRenderIndex) {
+    const unchangedInput = document.createElement('span');
+    unchangedInput.textContent = input.substring(inputRenderIndex, correction.startIndex);
+    editBox.append(unchangedInput);
+  }
+  // Render part of input that has an error and highlight as such.
+  const errorInput = document.createElement('span');
+  errorInput.textContent = input.substring(correction.startIndex, correction.endIndex);
+  errorInput.classList.add('error');
+  editBox.append(errorInput);
+  inputRenderIndex = correction.endIndex;
+}
+
+// Render the rest of the input that has no error.
+if (inputRenderIndex !== input.length){
+  const unchangedInput = document.createElement('span');
+  unchangedInput.textContent = input.substring(inputRenderIndex, input.length);
+  editBox.append(unchangedInput);
+}
+
+Permission Policy, iframes, and Web Workers
+By default, the Proofreader API is only available to top-level windows and to their same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permission Policy allow="" attribute:
+<!--
+  The hosting site at https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Proofreader API by
+  setting the `allow="proofreader"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="proofreader"></iframe>
+
+The Proofreader API isn't available in Web Workers. This is due to the complexity of establishing a responsible document for each worker, in order to check the Permissions Policy status.
+Demo
+Play around with the Proofreader API playground.
+The Prompt API
+bookmark_border
+
+Thomas Steiner
+
+Alexandra Klepper
+Published: May 20, 2025, Last updated: September 21, 2025
+Explainer
+Web
+Extensions
+Chrome Status
+Intent
+GitHub
+ In Origin trial
+ Chrome 138
+View
+Intent to Experiment
+
+With the Prompt API, you can send natural language requests to Gemini Nano in the browser.
+There are many ways you can use the Prompt API. For example, you could build:
+AI-powered search: Answer questions based on the content of a web page.
+Personalized news feeds: Build a feed that dynamically classifies articles with categories and allow for users to filter for that content.
+Custom content filters. Analyze news articles and automatically blur or hide content based on user-defined topics.
+Calendar event creation. Develop a Chrome Extension that automatically extracts event details from web pages, so users can create calendar entries in just a few steps.
+Seamless contact extraction. Build an extension that extracts contact information from websites, making it easier for users to contact a business or add details to their list of contacts.
+These are just a few possibilities, and we're excited to see what you create.
+Important: Gemini Nano is a generative AI model. Before you build with APIs that use Gemini Nano, you should review the People + AI Guidebook for best practices, methods, and examples for designing with AI.
+Review the hardware requirements
+The following requirements exist for developers and the users who operate features using these APIs in Chrome. Other browsers may have different operating requirements.
+The Language Detector and Translator APIs work in Chrome on desktop. These APIs do not work on mobile devices. The Prompt API, Summarizer API, Writer API, Rewriter API, and Proofreader API work in Chrome when the following conditions are met:
+Operating system: Windows 10 or 11; macOS 13+ (Ventura and onwards); Linux; or ChromeOS (from Platform 16389.0.0 and onwards) on Chromebook Plus devices. Chrome for Android, iOS, and ChromeOS on non-Chromebook Plus devices are not yet supported by the APIs which use Gemini Nano.
+Storage: At least 22 GB of free space on the volume that contains your Chrome profile.Built-in models should be significantly smaller. The exact size may vary slightly with updates.
+GPU: Strictly more than 4 GB of VRAM.
+Network: Unlimited data or an unmetered connection.Key term: A metered connection is a data-limited internet connection. Wi-Fi and ethernet connections tend to be unmetered by default, while cellular connections are often metered.
+Gemini Nano's exact size may vary as the browser updates the model. To determine the current size, visit chrome://on-device-internals.
+Note: If the available storage space falls to less than 10 GB after the download, the model is removed from your device. The model redownloads once the requirements are met.
+Use the Prompt API
+The Prompt API uses the Gemini Nano model in Chrome. While the API is built into Chrome, the model is downloaded separately the first time an origin uses the API. Before you use this API, acknowledge Google's Generative AI Prohibited Uses Policy.
+Note: Extensions Developers should remove the expired origin trial permissions: "permissions": ["aiLanguageModelOriginTrial"].
+To determine if the model is ready to use, call LanguageModel.availability().
+const availability = await LanguageModel.availability();
+
+Caution: Always pass the same options to the availability() function that you use in prompt() or promptStreaming(). This is critical, as some models may not support certain modalities or languages.
+Before the model can be downloaded, there must be a user interaction, such as a click, tap, or key press.
+If the response was downloadable or downloading, the model and APIs are available but must be downloaded before you can use the features. The user must interact with the page (such as a click, tap, or key press) for a download to be permitted.
+To download and instantiate the model, call the create() function.
+const session = await LanguageModel.create({
+  monitor(m) {
+    m.addEventListener('downloadprogress', (e) => {
+      console.log(`Downloaded ${e.loaded * 100}%`);
+    });
+  },
+});
+
+If the response to availability() was downloading, listen for download progress and inform the user, as the download may take time.
+Model parameters
+The params() function informs you of the language model's parameters. The object has the following fields:
+defaultTopK: The default top-K value.
+maxTopK: The maximum top-K value.
+defaultTemperature: The default temperature.
+maxTemperature: The maximum temperature.
+await LanguageModel.params();
+// {defaultTopK: 3, maxTopK: 128, defaultTemperature: 1, maxTemperature: 2}
+
+Create a session
+Once the Prompt API can run, you create a session with the create() function.
+Each session can be customized with topK and temperature using an optional options object. The default values for these parameters are returned from LanguageModel.params().
+const params = await LanguageModel.params();
+// Initializing a new session must either specify both `topK` and
+// `temperature` or neither of them.
+const slightlyHighTemperatureSession = await LanguageModel.create({
+  temperature: Math.max(params.defaultTemperature * 1.2, 2.0),
+  topK: params.defaultTopK,
+});
+
+The create() function's optional options object also takes a signal field, which lets you pass an AbortSignal to destroy the session.
+const controller = new AbortController();
+stopButton.onclick = () => controller.abort();
+
+const session = await LanguageModel.create({
+  signal: controller.signal,
+});
+
+Add context with initial prompts
+With initial prompts, you can provide the language model with context about previous interactions, for example, to allow the user to resume a stored session after a browser restart.
+const session = await LanguageModel.create({
+  initialPrompts: [
+    { role: 'system', content: 'You are a helpful and friendly assistant.' },
+    { role: 'user', content: 'What is the capital of Italy?' },
+    { role: 'assistant', content: 'The capital of Italy is Rome.' },
+    { role: 'user', content: 'What language is spoken there?' },
+    {
+      role: 'assistant',
+      content: 'The official language of Italy is Italian. [...]',
+    },
+  ],
+});
+
+Constrain responses with a prefix
+You can add an "assistant" role, in addition to previous roles, to elaborate on the model's previous responses. For example:
+const followup = await session.prompt([
+  {
+    role: "user",
+    content: "I'm nervous about my presentation tomorrow"
+  },
+  {
+    role: "assistant",
+    content: "Presentations are tough!"
+  }
+]);
+
+In some cases, instead of requesting a new response, you may want to prefill part of the "assistant"-role response message. This can be helpful to guide the language model to use a specific response format. To do this, add prefix: true to the trailing "assistant"-role message. For example:
+const characterSheet = await session.prompt([
+  {
+    role: 'user',
+    content: 'Create a TOML character sheet for a gnome barbarian',
+  },
+  {
+    role: 'assistant',
+    content: '```toml\n',
+    prefix: true,
+  },
+]);
+
+Add expected input and output
+The Prompt API has multimodal capabilities and supports multiple languages. Set the expectedInputs and expectedOutputs modalities and languages when creating your session.
+type: Modality expected.
+For expectedInputs, this can be text, image, or audio.
+For expectedOutputs, the Prompt API allows text only.
+languages: Array to set the language or languages expected. The Prompt API accepts "en", "ja", and "es". Support for additional languages is in development.
+For expectedInputs, set the system prompt language and one or more expected user prompt languages.
+Set one or more expectedOutputs languages.
+const session = await LanguageModel.create({
+  expectedInputs: [
+    { type: "text", languages: ["en" /* system prompt */, "ja" /* user prompt */] }
+  ],
+  expectedOutputs: [
+    { type: "text", languages: ["ja"] }
+  ]
+});
+
+You may receive a "NotSupportedError" DOMException if the model encounters an unsupported input or output.
+Multimodal capabilities
+Caution: Multimodal capabilities are in the Prompt API origin trial for web and Chrome Extensions. These are not yet available in Chrome Stable.
+With these capabilities, you could:
+Allow users to transcribe audio messages sent in a chat application.
+Describe an image uploaded to your website for use in a caption or alt text.
+Take a look at the Mediarecorder Audio Prompt demo for using the Prompt API with audio input and the Canvas Image Prompt demo for using the Prompt API with image input.
+Append messages
+Inference may take some time, especially when prompting with multimodal inputs. It can be useful to send predetermined prompts in advance to populate the session, so the model can get a head start on processing.
+While initialPrompts are useful at session creation, the append() method can be used in addition to the prompt() or promptStreaming() methods, to give additional additional contextual prompts after the session is created.
+For example:
+const session = await LanguageModel.create({
+  initialPrompts: [
+    {
+      role: 'system',
+      content:
+        'You are a skilled analyst who correlates patterns across multiple images.',
+    },
+  ],
+  expectedInputs: [{ type: 'image' }],
+});
+
+fileUpload.onchange = async () => {
+  await session.append([
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          value: `Here's one image. Notes: ${fileNotesInput.value}`,
+        },
+        { type: 'image', value: fileUpload.files[0] },
+      ],
+    },
+  ]);
+};
+
+analyzeButton.onclick = async (e) => {
+  analysisResult.textContent = await session.prompt(userQuestionInput.value);
+};
+
+The promise returned by append() fulfills once the prompt has been validated, processed, and appended to the session. The promise is rejected if the prompt cannot be appended.
+Pass a JSON Schema
+Add the responseConstraint field to prompt() or promptStreaming() method to pass a JSON Schema as the value. You can then use structured output with the Prompt API.
+In the following example, the JSON Schema makes sure the model responds with true or false to classify if a given message is about pottery.
+const session = await LanguageModel.create();
+
+const schema = {
+  "type": "boolean"
+};
+
+const post = "Mugs and ramen bowls, both a bit smaller than intended, but that
+happens with reclaim. Glaze crawled the first time around, but pretty happy
+with it after refiring.";
+
+const result = await session.prompt(
+  `Is this post about pottery?\n\n${post}`,
+  {
+    responseConstraint: schema,
+  }
+);
+console.log(JSON.parse(result));
+// true
+
+Your implementation can include a JSON Schema or regular expression as part of the message sent to the model. This uses some of the input quota. You can measure how much of the input quota it will use by passing the responseConstraint option to session.measureInputUsage().
+You can avoid this behavior with the omitResponseConstraintInput option. If you do so, we recommend that you include some guidance in the prompt:
+const result = await session.prompt(`
+  Summarize this feedback into a rating between 0-5. Only output a JSON
+  object { rating }, with a single property whose value is a number:
+  The food was delicious, service was excellent, will recommend.
+`, { responseConstraint: schema, omitResponseConstraintInput: true });
+
+Prompt the model
+You can prompt the model with either the prompt() or the promptStreaming() functions.
+Non-streamed output
+If you expect a short result, you can use the prompt() function that returns the response once it's available.
+// Start by checking if it's possible to create a session based on the
+// availability of the model, and the characteristics of the device.
+const { defaultTemperature, maxTemperature, defaultTopK, maxTopK } =
+  await LanguageModel.params();
+
+const available = await LanguageModel.availability();
+
+if (available !== 'unavailable') {
+  const session = await LanguageModel.create();
+
+  // Prompt the model and wait for the whole result to come back.
+  const result = await session.prompt('Write me a poem!');
+  console.log(result);
+}
+
+Streamed output
+If you expect a longer response, you should use the promptStreaming() function which lets you show partial results as they come in from the model. The promptStreaming() function returns a ReadableStream.
+const { defaultTemperature, maxTemperature, defaultTopK, maxTopK } =
+  await LanguageModel.params();
+
+const available = await LanguageModel.availability();
+if (available !== 'unavailable') {
+  const session = await LanguageModel.create();
+
+  // Prompt the model and stream the result:
+  const stream = session.promptStreaming('Write me an extra-long poem!');
+  for await (const chunk of stream) {
+    console.log(chunk);
+  }
+}
+
+Stop prompting
+Both prompt() and promptStreaming() accept an optional second parameter with a signal field, which lets you stop running prompts.
+const controller = new AbortController();
+stopButton.onclick = () => controller.abort();
+
+const result = await session.prompt('Write me a poem!', {
+  signal: controller.signal,
+});
+
+Session management
+Each session keeps track of the context of the conversation. Previous interactions are taken into account for future interactions until the session's context window is full.
+Each session has a maximum number of tokens it can process. Check your progress towards this limit with the following:
+console.log(`${session.inputUsage}/${session.inputQuota}`);
+
+Learn more about session management.
+Clone a session
+To preserve resources, you can clone an existing session with the clone() function. The conversation context is reset, but the initial prompt remains intact. The clone() function takes an optional options object with a signal field, which lets you pass an AbortSignal to destroy the cloned session.
+const controller = new AbortController();
+stopButton.onclick = () => controller.abort();
+
+const clonedSession = await session.clone({
+  signal: controller.signal,
+});
+
+Terminate a session
+Call destroy() to free resources if you no longer need a session. When a session is destroyed, it can no longer be used, and any ongoing execution is aborted. You may want to keep the session around if you intend to prompt the model often since creating a session can take some time.
+await session.prompt(
+  "You are a friendly, helpful assistant specialized in clothing choices."
+);
+
+session.destroy();
+
+// The promise is rejected with an error explaining that
+// the session is destroyed.
+await session.prompt(
+  "What should I wear today? It is sunny, and I am choosing between a t-shirt
+  and a polo."
+);
+
+Demos
+We've built multiple demos to explore the many use cases for the Prompt API. The following demos are web applications:
+Prompt API playground
+Mediarecorder Audio Prompt
+Canvas Image Prompt
+To test the Prompt API in Chrome Extensions, install the demo extension. The extension source code is available on GitHub.
+Performance strategy
+The Prompt API for the web is still being developed. While we build this API, refer to our best practices on session management for optimal performance.
+Permission Policy, iframes, and Web Workers
+By default, the Prompt API is only available to top-level windows and to their same-origin iframes. Access to the API can be delegated to cross-origin iframes using the Permission Policy allow="" attribute:
+<!--
+  The hosting site at https://main.example.com can grant a cross-origin iframe
+  at https://cross-origin.example.com/ access to the Prompt API by
+  setting the `allow="language-model"` attribute.
+-->
+<iframe src="https://cross-origin.example.com/" allow="language-model"></iframe>
+
+The Prompt API isn't available in Web Workers for now, due to the complexity of establishing a responsible document for each worker in order to check the permissions policy status.
+

@@ -1,0 +1,278 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║   📄 DocuGuide - Installation Instructions                    ║
+║   Your Private Form Assistant for Government Documents         ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+QUICK INSTALL (5 minutes)
+═══════════════════════════════════════════════════════════════
+
+STEP 1: Check Prerequisites
+───────────────────────────
+
+✓ Chrome Version 138+ 
+  → Check at: chrome://version
+  → If older, update Chrome
+
+✓ Native Operating System (NOT WSL2)
+  → Windows 10+, macOS 13+, or dual-boot Linux
+  → WSL2 users: test on Windows host instead
+
+✓ Hardware Requirements
+  → 8GB+ RAM
+  → 4GB+ VRAM (GPU memory)
+  → 10GB+ free disk space
+
+✓ Download AI Models
+  → Open: chrome://on-device-internals
+  → Check status, download if needed
+  → Wait for "Ready" status
+
+
+STEP 2: Test Environment
+──────────────────────────
+
+Open Chrome DevTools Console (F12) and paste:
+
+  console.log('Summarizer:', 'Summarizer' in self);
+  console.log('Translator:', 'Translator' in self);
+  console.log('LanguageModel:', 'LanguageModel' in self);
+
+All should show "true". If false, see troubleshooting below.
+
+
+STEP 3: Prepare Icons
+──────────────────────
+
+Create 3 icon files in the icons/ folder:
+  • icon16.png (16x16 pixels)
+  • icon48.png (48x48 pixels)
+  • icon128.png (128x128 pixels)
+
+Quick options:
+  → Screenshot emoji: https://emojipedia.org/page-facing-up/
+  → Placeholder: https://via.placeholder.com/16/2563EB/FFF?text=DG
+  → Design your own with any image editor
+
+
+STEP 4: Load Extension
+───────────────────────
+
+1. Open Chrome
+2. Go to: chrome://extensions/
+3. Enable "Developer mode" (top-right toggle)
+4. Click "Load unpacked"
+5. Select the DocuGuide folder
+6. Done! Extension should appear in toolbar
+
+
+STEP 5: Test It
+────────────────
+
+1. Click DocuGuide icon → "Open Sidebar"
+2. Look for status: should say "✓ Ready"
+3. Go to any webpage with text (try Wikipedia)
+4. Select a paragraph
+5. Click "Summarize" button
+6. Should see a summary appear!
+
+🎉 If it works, you're done! Start using DocuGuide!
+
+
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Problem: Status shows "✗ Error"
+────────────────────────────────
+
+Solution:
+  1. Open Settings → "Test API Availability"
+  2. Go to chrome://on-device-internals
+  3. Verify models show "Ready"
+  4. Restart Chrome completely
+  5. Reload extension
+
+
+Problem: "APIs Not Available"
+──────────────────────────────
+
+Solutions:
+  → Update Chrome to 138+
+  → Download models at chrome://on-device-internals
+  → If on WSL2: test on Windows host instead
+  → Check hardware: need 8GB RAM, 4GB VRAM
+
+
+Problem: On WSL2 - Nothing Works
+─────────────────────────────────
+
+Reality: WSL2 is virtualized, Chrome AI needs native OS
+
+Your options:
+  → Open Chrome on Windows (not in WSL2 terminal)
+  → Access Windows files: /mnt/c/Users/YourName/
+  → Load extension from Windows path
+  → Or test on Mac/Linux dual-boot
+
+
+Problem: Icons Not Showing
+───────────────────────────
+
+Solution:
+  → Create all 3 icon files (16, 48, 128 pixels)
+  → Must be PNG format
+  → Must be in icons/ folder
+  → Must be named exactly: icon16.png, icon48.png, icon128.png
+  → Reload extension
+
+
+DETAILED DOCUMENTATION
+═══════════════════════════════════════════════════════════════
+
+For complete documentation, see:
+
+  README.md           - Full user guide and feature docs
+  QUICKSTART.md       - 5-minute setup guide
+  DEVELOPMENT.md      - Technical deep dive
+  PROJECT_SUMMARY.md  - Project overview and architecture
+  test-api.html       - Open in Chrome to test APIs
+
+
+SUPPORT RESOURCES
+═══════════════════════════════════════════════════════════════
+
+Chrome Built-in AI Status:
+  → chrome://on-device-internals
+
+Extension Management:
+  → chrome://extensions/
+
+Chrome Version:
+  → chrome://version
+
+Test Page:
+  → Open test-api.html in Chrome
+
+
+PRIVACY GUARANTEE
+═══════════════════════════════════════════════════════════════
+
+🔒 All AI processing happens locally on your device
+🔒 No data ever sent to external servers
+🔒 Only stores: language preference, theme choice
+🔒 No tracking, no analytics, no cloud sync
+🔒 Clear data anytime in Settings
+
+Perfect for sensitive documents:
+  ✓ Immigration forms
+  ✓ Tax documents
+  ✓ Medical paperwork
+  ✓ Legal notices
+
+
+QUICK REFERENCE
+═══════════════════════════════════════════════════════════════
+
+Main Features:
+  📝 Summarize - Extract key points from complex text
+  🌍 Translate - Convert to 10+ languages
+  💬 Ask AI - Get answers about confusing forms
+  ✍️ Check Text - Improve grammar and clarity
+
+Usage:
+  1. Select text on any webpage
+  2. Right-click → Choose action
+  3. Or open sidebar → Click button
+  4. View results instantly
+
+Settings:
+  → Set preferred translation language
+  → Change theme
+  → Test API availability
+  → Clear all data
+
+
+FILE STRUCTURE
+═══════════════════════════════════════════════════════════════
+
+DocuGuide/
+├── manifest.json              Extension configuration
+├── README.md                  Main documentation
+├── QUICKSTART.md             Fast setup guide
+├── DEVELOPMENT.md            Developer guide
+├── PROJECT_SUMMARY.md        Project overview
+├── test-api.html             API test page
+├── INSTALL.txt               This file
+├── background/
+│   └── service-worker.js     Background logic
+├── content/
+│   └── content-script.js     Page interaction
+├── sidebar/
+│   ├── sidebar.html          Main UI
+│   └── sidebar.js            UI logic
+├── popup/
+│   ├── popup.html            Extension popup
+│   └── popup.js              Popup logic
+├── utils/
+│   ├── api-manager.js        AI API wrapper
+│   └── storage.js            Storage manager
+└── icons/
+    ├── icon16.png            REQUIRED: 16x16 icon
+    ├── icon48.png            REQUIRED: 48x48 icon
+    └── icon128.png           REQUIRED: 128x128 icon
+
+
+WHAT'S NEXT?
+═══════════════════════════════════════════════════════════════
+
+Once installed:
+
+1. Try all features on sample documents
+2. Test on real government forms
+3. Set your preferred language
+4. Share with friends/family who need help
+5. Provide feedback for improvements
+
+
+FOR HACKATHON JUDGES
+═══════════════════════════════════════════════════════════════
+
+⚡ Quick Demo Path:
+  1. Load extension (3 min)
+  2. Open test-api.html (1 min)
+  3. Test on Wikipedia article (1 min)
+  → Total: 5 minutes to see it working
+
+📄 Key Documents:
+  → QUICKSTART.md for setup
+  → PROJECT_SUMMARY.md for technical details
+  → README.md for complete feature list
+
+🎯 Unique Value:
+  → Only privacy-first civic form assistant
+  → All processing local (Gemini Nano)
+  → Perfect for sensitive documents
+  → Designed for vulnerable populations
+
+
+GETTING HELP
+═══════════════════════════════════════════════════════════════
+
+Still stuck?
+
+1. Run test-api.html in Chrome
+2. Check console for errors (F12)
+3. Read DEVELOPMENT.md troubleshooting section
+4. Open GitHub issue with diagnostics
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║  Made with ❤️ for immigrants, seniors, and anyone confused    ║
+║  by government forms. Your privacy is our priority.            ║
+║                                                                ║
+║  DocuGuide - Because understanding shouldn't require a         ║
+║  lawyer, translator, or tech degree. 📄✨                      ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝

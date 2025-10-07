@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuGuide Extension Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 DocuGuide Extension Test Page</h1>
+    
+    <div class="test-section">
+        <h2>📝 Text Selection Test</h2>
+        <p>Select this text to test DocuGuide's core features:</p>
+        <div class="highlight">
+            This is a test paragraph that you can select and use with DocuGuide's AI features. 
+            It contains government form terminology and complex language that can be simplified, 
+            translated, or analyzed using the extension's built-in AI capabilities.
+        </div>
+        <p><strong>Instructions:</strong> Select the highlighted text above, then open DocuGuide sidebar and test:</p>
+        <ul>
+            <li>📄 <strong>Summarize</strong> - Simplify complex text</li>
+            <li>🌐 <strong>Translate</strong> - Translate to different languages</li>
+            <li>❓ <strong>Ask AI</strong> - Ask questions about the content</li>
+            <li>✅ <strong>Check</strong> - Improve writing quality</li>
+            <li>🤖 <strong>Smart Assistant</strong> - New AI-powered form helper</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Form Test</h2>
+        <form id="testForm">
+            <h3>Sample Government Form</h3>
+            
+            <label for="fullName">Full Name:</label>
+            <input type="text" id="fullName" name="fullName" placeholder="Enter your full name" required>
+            
+            <label for="email">Email Address:</label>
+            <input type="email" id="email" name="email" placeholder="your.email@example.com" required>
+            
+            <label for="dob">Date of Birth:</label>
+            <input type="date" id="dob" name="dob" required>
+            
+            <label for="nationality">Nationality:</label>
+            <select id="nationality" name="nationality" required>
+                <option value="">Select your nationality</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="UK">United Kingdom</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="other">Other</option>
+            </select>
+            
+            <label for="purpose">Purpose of Application:</label>
+            <textarea id="purpose" name="purpose" rows="4" placeholder="Please describe the purpose of your application..." required></textarea>
+            
+            <label>
+                <input type="checkbox" name="agree" required>
+                I agree to the terms and conditions
+            </label>
+            
+            <button type="submit">Submit Application</button>
+        </form>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Extension Status</h2>
+        <div id="extensionStatus">
+            <p>Loading extension status...</p>
+        </div>
+        <button onclick="testExtension()">Test Extension Connection</button>
+        <button onclick="checkAPIs()">Check Chrome AI APIs</button>
+    </div>
+
+    <script>
+        function testExtension() {
+            document.getElementById('extensionStatus').innerHTML = `
+                <p>✅ Extension test page loaded successfully</p>
+                <p>📱 DocuGuide should be available in your browser toolbar</p>
+                <p>🎯 Try selecting text and using the sidebar features</p>
+            `;
+        }
+
+        function checkAPIs() {
+            const status = document.getElementById('extensionStatus');
+            
+            // Check for Chrome AI APIs
+            const apis = {
+                'Summarizer': 'Summarizer' in self,
+                'Translator': 'Translator' in self,
+                'LanguageDetector': 'LanguageDetector' in self,
+                'LanguageModel': 'LanguageModel' in self
+            };
+            
+            let html = '<h3>Chrome AI API Status:</h3>';
+            for (const [api, available] of Object.entries(apis)) {
+                html += `<p>${available ? '✅' : '❌'} ${api}: ${available ? 'Available' : 'Not Available'}</p>`;
+            }
+            
+            status.innerHTML = html;
+        }
+
+        // Auto-check APIs on load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(checkAPIs, 1000);
+        });
+    </script>
+</body>
+</html>

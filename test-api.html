@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuGuide - API Test Page</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-8">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">DocuGuide API Test</h1>
+    <p class="text-gray-600 mb-6">Test Chrome Built-in AI APIs in your environment</p>
+
+    <!-- Environment Info -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">Environment</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600">User Agent:</span>
+          <span class="font-mono text-xs" id="userAgent"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Chrome Version:</span>
+          <span class="font-mono" id="chromeVersion"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Platform:</span>
+          <span class="font-mono" id="platform"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Availability Tests -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">API Availability</h2>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+          <span class="font-medium">Summarizer API</span>
+          <span id="summarizerStatus" class="text-gray-400">Testing...</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+          <span class="font-medium">Translator API</span>
+          <span id="translatorStatus" class="text-gray-400">Testing...</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+          <span class="font-medium">Language Detector API</span>
+          <span id="detectorStatus" class="text-gray-400">Testing...</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+          <span class="font-medium">Language Model API</span>
+          <span id="modelStatus" class="text-gray-400">Testing...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Capabilities -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">Detailed Capabilities</h2>
+      <pre id="capabilitiesOutput" class="bg-gray-900 text-green-400 p-4 rounded text-xs overflow-auto max-h-96 font-mono">Running tests...</pre>
+    </div>
+
+    <!-- Quick Test -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">Quick Functionality Test</h2>
+      
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Test Text:</label>
+        <textarea id="testInput" class="w-full p-3 border border-gray-300 rounded-lg" rows="4">The United States Department of State is responsible for issuing passports to U.S. citizens. To apply for a passport, you must provide proof of citizenship, a valid photo ID, and payment for the application fee. Processing times vary but typically take 4-6 weeks for routine service.</textarea>
+      </div>
+
+      <div class="flex gap-3 mb-4">
+        <button id="testSummarize" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+          Test Summarize
+        </button>
+        <button id="testTranslate" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition">
+          Test Translate (to Spanish)
+        </button>
+        <button id="testAI" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+          Test AI Q&A
+        </button>
+      </div>
+
+      <div id="testOutput" class="bg-gray-50 p-4 rounded-lg text-sm hidden">
+        <div class="font-medium text-gray-700 mb-2">Result:</div>
+        <div id="testResult" class="text-gray-800"></div>
+      </div>
+    </div>
+
+    <!-- WSL2 Warning -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl">⚠️</span>
+        <div>
+          <h3 class="font-semibold text-yellow-800 mb-1">WSL2 Users</h3>
+          <p class="text-sm text-yellow-700">If all tests fail and you're using WSL2, Chrome Built-in AI APIs may not be available in virtualized environments. Try testing on native Windows, macOS, or Linux.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diagnostic Info -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl">ℹ️</span>
+        <div>
+          <h3 class="font-semibold text-blue-800 mb-1">Need Help?</h3>
+          <p class="text-sm text-blue-700 mb-2">Check these resources:</p>
+          <ul class="text-sm text-blue-700 space-y-1">
+            <li>• Visit <a href="chrome://on-device-internals" class="underline">chrome://on-device-internals</a> to check model status</li>
+            <li>• Check <a href="chrome://version" class="underline">chrome://version</a> - need Chrome 138+</li>
+            <li>• Ensure 8GB+ RAM and 4GB+ VRAM available</li>
+            <li>• Open DevTools Console (F12) for detailed error messages</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Display environment info
+    document.getElementById('userAgent').textContent = navigator.userAgent;
+    document.getElementById('chromeVersion').textContent = navigator.userAgent.match(/Chrome\/(\d+)/)?.[1] || 'Unknown';
+    document.getElementById('platform').textContent = navigator.platform;
+
+    let outputLog = [];
+    
+    function log(message, level = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      outputLog.push(`[${timestamp}] ${level.toUpperCase()}: ${message}`);
+      document.getElementById('capabilitiesOutput').textContent = outputLog.join('\n');
+      console.log(message);
+    }
+
+    function setStatus(elementId, status, available) {
+      const element = document.getElementById(elementId);
+      if (available) {
+        element.textContent = '✅ ' + status;
+        element.className = 'text-green-600 font-medium';
+      } else {
+        element.textContent = '❌ ' + status;
+        element.className = 'text-red-600 font-medium';
+      }
+    }
+
+    async function testAPIs() {
+      log('=== Starting Chrome Built-in AI Tests ===');
+      log(`Chrome Version: ${navigator.userAgent.match(/Chrome\/(\d+)/)?.[1]}`);
+      log(`Platform: ${navigator.platform}`);
+      log('');
+
+      // Test Summarizer
+      log('Testing Summarizer API...');
+      if ('Summarizer' in self) {
+        log('✓ Summarizer exists in self');
+        try {
+          const caps = await self.Summarizer.capabilities();
+          log(`Summarizer capabilities: ${JSON.stringify(caps, null, 2)}`);
+          setStatus('summarizerStatus', caps.available || 'Unknown', caps.available === 'readily');
+        } catch (e) {
+          log(`✗ Summarizer error: ${e.message}`, 'error');
+          setStatus('summarizerStatus', 'Error', false);
+        }
+      } else {
+        log('✗ Summarizer NOT found in self', 'error');
+        setStatus('summarizerStatus', 'Not Available', false);
+      }
+      log('');
+
+      // Test Translator
+      log('Testing Translator API...');
+      if ('Translator' in self) {
+        log('✓ Translator exists in self');
+        try {
+          const caps = await self.Translator.capabilities();
+          log(`Translator capabilities: ${JSON.stringify(caps, null, 2)}`);
+          setStatus('translatorStatus', caps.available || 'Unknown', caps.available === 'readily');
+        } catch (e) {
+          log(`✗ Translator error: ${e.message}`, 'error');
+          setStatus('translatorStatus', 'Error', false);
+        }
+      } else {
+        log('✗ Translator NOT found in self', 'error');
+        setStatus('translatorStatus', 'Not Available', false);
+      }
+      log('');
+
+      // Test Language Detector
+      log('Testing Language Detector API...');
+      if ('LanguageDetector' in self) {
+        log('✓ LanguageDetector exists in self');
+        try {
+          const caps = await self.LanguageDetector.capabilities();
+          log(`LanguageDetector capabilities: ${JSON.stringify(caps, null, 2)}`);
+          setStatus('detectorStatus', caps.available || 'Unknown', caps.available === 'readily');
+        } catch (e) {
+          log(`✗ LanguageDetector error: ${e.message}`, 'error');
+          setStatus('detectorStatus', 'Error', false);
+        }
+      } else {
+        log('✗ LanguageDetector NOT found in self', 'error');
+        setStatus('detectorStatus', 'Not Available', false);
+      }
+      log('');
+
+      // Test Language Model
+      log('Testing Language Model API...');
+      if ('LanguageModel' in self) {
+        log('✓ LanguageModel exists in self');
+        try {
+          const caps = await self.LanguageModel.capabilities();
+          log(`LanguageModel capabilities: ${JSON.stringify(caps, null, 2)}`);
+          setStatus('modelStatus', caps.available || 'Unknown', caps.available === 'readily');
+        } catch (e) {
+          log(`✗ LanguageModel error: ${e.message}`, 'error');
+          setStatus('modelStatus', 'Error', false);
+        }
+      } else {
+        log('✗ LanguageModel NOT found in self', 'error');
+        setStatus('modelStatus', 'Not Available', false);
+      }
+      log('');
+
+      log('=== Tests Complete ===');
+      log('If all APIs show as "Not Available", you may be in an unsupported environment.');
+      log('Try: 1) Update Chrome to 138+, 2) Check chrome://on-device-internals, 3) Test on native OS (not WSL2)');
+    }
+
+    // Test buttons
+    document.getElementById('testSummarize').addEventListener('click', async () => {
+      const text = document.getElementById('testInput').value;
+      const output = document.getElementById('testOutput');
+      const result = document.getElementById('testResult');
+      
+      output.classList.remove('hidden');
+      result.textContent = 'Processing...';
+
+      try {
+        if (!('Summarizer' in self)) {
+          throw new Error('Summarizer API not available');
+        }
+
+        const summarizer = await self.Summarizer.create({
+          type: 'key-points',
+          format: 'markdown',
+          length: 'short'
+        });
+
+        const summary = await summarizer.summarize(text);
+        result.textContent = summary;
+        log('✓ Summarization test successful');
+      } catch (e) {
+        result.textContent = `Error: ${e.message}`;
+        log(`✗ Summarization test failed: ${e.message}`, 'error');
+      }
+    });
+
+    document.getElementById('testTranslate').addEventListener('click', async () => {
+      const text = document.getElementById('testInput').value;
+      const output = document.getElementById('testOutput');
+      const result = document.getElementById('testResult');
+      
+      output.classList.remove('hidden');
+      result.textContent = 'Processing...';
+
+      try {
+        if (!('Translator' in self)) {
+          throw new Error('Translator API not available');
+        }
+
+        const translator = await self.Translator.create({
+          sourceLanguage: 'en',
+          targetLanguage: 'es'
+        });
+
+        const translation = await translator.translate(text);
+        result.textContent = `Translation: ${translation}`;
+        log('✓ Translation test successful');
+      } catch (e) {
+        result.textContent = `Error: ${e.message}`;
+        log(`✗ Translation test failed: ${e.message}`, 'error');
+      }
+    });
+
+    document.getElementById('testAI').addEventListener('click', async () => {
+      const text = document.getElementById('testInput').value;
+      const output = document.getElementById('testOutput');
+      const result = document.getElementById('testResult');
+      
+      output.classList.remove('hidden');
+      result.textContent = 'Processing...';
+
+      try {
+        if (!('LanguageModel' in self)) {
+          throw new Error('LanguageModel API not available');
+        }
+
+        const session = await self.LanguageModel.create({
+          systemPrompt: 'You are a helpful assistant. Answer concisely.',
+          temperature: 0.3,
+          topK: 40
+        });
+
+        const response = await session.prompt(`Summarize this in one sentence: ${text}`);
+        result.textContent = response;
+        log('✓ AI Q&A test successful');
+      } catch (e) {
+        result.textContent = `Error: ${e.message}`;
+        log(`✗ AI Q&A test failed: ${e.message}`, 'error');
+      }
+    });
+
+    // Run tests on load
+    testAPIs();
+  </script>
+</body>
+</html>

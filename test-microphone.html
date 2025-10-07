@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuGuide - Microphone Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            background: #2563EB;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1E40AF;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+        .error { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; }
+        .info { background: #DBEAFE; color: #1E40AF; border: 1px solid #93C5FD; }
+        .recording {
+            background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        #transcript {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 100px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 DocuGuide Microphone Test</h1>
+        <p>This page helps you test microphone permissions and voice recording functionality for the DocuGuide extension.</p>
+        
+        <div class="test-section">
+            <h2>1. Check Microphone Permission</h2>
+            <button onclick="checkMicrophonePermission()">Check Permission</button>
+            <div id="permissionStatus" class="status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. Test Microphone Access</h2>
+            <button onclick="testMicrophoneAccess()">Test Microphone</button>
+            <div id="accessStatus" class="status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>3. Test Voice Recording</h2>
+            <button id="recordBtn" onclick="startRecording()">Start Recording</button>
+            <button id="stopBtn" onclick="stopRecording()" disabled>Stop Recording</button>
+            <div id="recordingStatus" class="status"></div>
+            <div id="transcript"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>4. Test Speech Recognition</h2>
+            <button id="speechBtn" onclick="testSpeechRecognition()">Start Speech Recognition</button>
+            <div id="speechStatus" class="status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Instructions</h2>
+            <ol>
+                <li><strong>Check Permission:</strong> Verify if microphone permission is granted</li>
+                <li><strong>Test Microphone:</strong> Test if we can access your microphone</li>
+                <li><strong>Test Recording:</strong> Record a short audio clip</li>
+                <li><strong>Test Speech Recognition:</strong> Convert speech to text</li>
+            </ol>
+            <p><strong>If any test fails:</strong></p>
+            <ul>
+                <li>Make sure you've granted microphone permission to Chrome</li>
+                <li>Check that your microphone is connected and working</li>
+                <li>Try refreshing the page and running the tests again</li>
+                <li>Check Chrome's site settings for microphone permissions</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recognition = null;
+
+        async function checkMicrophonePermission() {
+            const statusDiv = document.getElementById('permissionStatus');
+            
+            try {
+                if ('permissions' in navigator) {
+                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                    statusDiv.className = 'status ' + (permissionStatus.state === 'granted' ? 'success' : 'error');
+                    statusDiv.textContent = `Microphone permission: ${permissionStatus.state}`;
+                } else {
+                    statusDiv.className = 'status info';
+                    statusDiv.textContent = 'Permission API not supported, will test directly';
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `Error checking permission: ${error.message}`;
+            }
+        }
+
+        async function testMicrophoneAccess() {
+            const statusDiv = document.getElementById('accessStatus');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Microphone access successful!';
+                
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Microphone access failed: ${error.message}`;
+            }
+        }
+
+        async function startRecording() {
+            const statusDiv = document.getElementById('recordingStatus');
+            const recordBtn = document.getElementById('recordBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    if (audioChunks.length > 0) {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = `✅ Recording completed! Size: ${audioBlob.size} bytes`;
+                    } else {
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = '❌ No audio recorded';
+                    }
+                    
+                    recordBtn.disabled = false;
+                    stopBtn.disabled = true;
+                };
+                
+                mediaRecorder.start();
+                statusDiv.className = 'status recording';
+                statusDiv.textContent = '🔴 Recording... Speak now!';
+                
+                recordBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Recording failed: ${error.message}`;
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        }
+
+        function testSpeechRecognition() {
+            const statusDiv = document.getElementById('speechStatus');
+            const speechBtn = document.getElementById('speechBtn');
+            
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = () => {
+                    statusDiv.className = 'status recording';
+                    statusDiv.textContent = '🎤 Listening... Speak now!';
+                    speechBtn.disabled = true;
+                };
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById('transcript').textContent = transcript;
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ Speech recognition successful!';
+                    speechBtn.disabled = false;
+                };
+                
+                recognition.onerror = (event) => {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `❌ Speech recognition error: ${event.error}`;
+                    speechBtn.disabled = false;
+                };
+                
+                recognition.onend = () => {
+                    speechBtn.disabled = false;
+                };
+                
+                recognition.start();
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Speech recognition not supported in this browser';
+            }
+        }
+
+        // Auto-check permissions on page load
+        window.onload = () => {
+            checkMicrophonePermission();
+        };
+    </script>
+</body>
+</html>

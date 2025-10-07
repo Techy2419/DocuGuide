@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuGuide</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    /* Design Tokens */
+    :root {
+      /* Colors */
+      --trust-blue: #2563EB;
+      --trust-blue-hover: #1E40AF;
+      --deep-blue: #1E40AF;
+      --light-blue: #EFF6FF;
+      --success-green: #10B981;
+      --warning-amber: #F59E0B;
+      --error-red: #EF4444;
+      --privacy-green: #059669;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-600: #6B7280;
+      --neutral-900: #1F2937;
+      --white: #FFFFFF;
+      
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      
+      /* Typography */
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-size-xs: 13px;
+      --font-size-sm: 14px;
+      --font-size-base: 15px;
+      --font-size-lg: 18px;
+      --font-size-xl: 24px;
+      --font-weight-normal: 400;
+      --font-weight-medium: 500;
+      --font-weight-semibold: 600;
+      --font-weight-bold: 700;
+      
+      /* Border Radius */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-full: 9999px;
+      
+      /* Shadows */
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+      
+      /* Transitions */
+      --transition-fast: 150ms ease-out;
+      --transition-base: 200ms ease-out;
+      --transition-slow: 300ms ease-out;
+      --transition-slowest: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Reset and Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 320px;
+      height: 280px;
+      font-family: var(--font-family);
+      background: var(--white);
+      color: var(--neutral-900);
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0); 
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-md);
+      border-bottom: 1px solid var(--neutral-200);
+      background: var(--white);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .logo {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, var(--trust-blue), var(--success-green));
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--neutral-900);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: var(--space-xs);
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-base);
+      font-size: 16px;
+    }
+
+    .icon-btn:hover {
+      background: var(--neutral-50);
+    }
+
+    .icon-btn:active {
+      background: var(--light-blue);
+      transform: scale(0.95);
+    }
+
+    /* Main Content */
+    .main-content {
+      padding: var(--space-sm) var(--space-md);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Privacy Badge */
+    .privacy-badge {
+      background: linear-gradient(135deg, #F0FDF4, #ECFDF5);
+      border: 1px solid #D1FAE5;
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      text-align: center;
+      margin-bottom: var(--space-lg);
+      cursor: pointer;
+      transition: all var(--transition-base);
+    }
+
+    .privacy-badge:hover {
+      background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .privacy-icon {
+      font-size: 16px;
+      color: var(--privacy-green);
+      margin-right: var(--space-xs);
+    }
+
+    .privacy-text {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--privacy-green);
+    }
+
+    .privacy-subtext {
+      font-size: var(--font-size-xs);
+      color: var(--neutral-600);
+      margin-top: var(--space-xs);
+    }
+
+    /* Action Buttons Grid */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-sm);
+      margin-bottom: var(--space-lg);
+    }
+
+    .action-btn {
+      background: var(--white);
+      border: 1.5px solid var(--neutral-200);
+      border-radius: 10px;
+      padding: var(--space-md);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-sm);
+      cursor: pointer;
+      transition: all var(--transition-base);
+      text-decoration: none;
+      color: var(--neutral-900);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      min-height: 80px;
+    }
+
+    .action-btn:hover {
+      border-color: var(--trust-blue);
+      box-shadow: var(--shadow-sm);
+      transform: translateY(-1px);
+    }
+
+    .action-btn:active {
+      background: var(--light-blue);
+      border-color: var(--trust-blue);
+      color: var(--trust-blue);
+      transform: scale(0.98);
+    }
+
+    .action-icon {
+      font-size: 28px;
+    }
+
+    /* Primary Button */
+    .primary-btn {
+      background: var(--trust-blue);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 10px 20px;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: all var(--transition-base);
+      box-shadow: var(--shadow-sm);
+      width: 100%;
+      margin-bottom: var(--space-md);
+    }
+
+    .primary-btn:hover {
+      background: var(--trust-blue-hover);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .primary-btn:active {
+      transform: scale(0.98);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Secondary Buttons */
+    .secondary-buttons {
+      display: flex;
+      gap: var(--space-sm);
+    }
+
+    .secondary-btn {
+      flex: 1;
+      background: transparent;
+      border: 1.5px solid var(--neutral-200);
+      color: var(--deep-blue);
+      border-radius: var(--radius-md);
+      padding: 10px 20px;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: all var(--transition-base);
+    }
+
+    .secondary-btn:hover {
+      background: var(--neutral-50);
+      border-color: var(--trust-blue);
+    }
+
+    .secondary-btn:active {
+      background: var(--light-blue);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: var(--space-xs) var(--space-md);
+      border-top: 1px solid var(--neutral-200);
+      background: var(--neutral-50);
+    }
+
+    .footer-text {
+      font-size: 11px;
+      color: var(--neutral-600);
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all var(--transition-slow);
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      max-width: 320px;
+      width: 90%;
+      box-shadow: var(--shadow-lg);
+      transform: scale(0.9) translateY(20px);
+      transition: all var(--transition-slow);
+    }
+
+    .modal-overlay.show .modal {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-md);
+      padding-bottom: var(--space-sm);
+      border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .modal-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--neutral-900);
+    }
+
+    .modal-close {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: var(--neutral-100);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--neutral-600);
+      transition: all var(--transition-base);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .modal-close:hover {
+      background: var(--error-red);
+      color: var(--white);
+      transform: scale(1.1);
+      box-shadow: var(--shadow-md);
+    }
+
+    .modal-close:active {
+      transform: scale(0.95);
+    }
+
+    .modal-content {
+      font-size: var(--font-size-base);
+      color: var(--neutral-600);
+      line-height: 1.6;
+      margin-bottom: var(--space-lg);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: var(--space-sm);
+      justify-content: flex-end;
+    }
+
+    /* Accessibility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Focus indicators */
+    button:focus-visible,
+    .action-btn:focus-visible {
+      outline: 2px solid var(--trust-blue);
+      outline-offset: 2px;
+    }
+
+    /* Quick Guide Styles */
+    .quick-guide {
+      text-align: center;
+      margin-bottom: var(--space-md);
+    }
+
+    .guide-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--neutral-900);
+      margin-bottom: var(--space-sm);
+    }
+
+    .steps-compact {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-xs);
+    }
+
+    .step-compact {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-xs);
+      min-width: 60px;
+    }
+
+    .step-icon-small {
+      font-size: 20px;
+    }
+
+    .step-text {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--neutral-600);
+      text-align: center;
+    }
+
+    .step-arrow {
+      font-size: 16px;
+      color: var(--trust-blue);
+      font-weight: bold;
+    }
+
+    /* Compact Privacy Badge */
+    .privacy-badge-compact {
+      text-align: center;
+      margin-bottom: var(--space-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .privacy-badge-compact .privacy-icon {
+      font-size: 12px;
+      color: #059669;
+    }
+
+    .privacy-badge-compact .privacy-text {
+      font-size: 11px;
+      font-weight: var(--font-weight-medium);
+      color: #059669;
+    }
+
+            /* FontAwesome Icon Styling */
+            .logo i {
+              color: #DC2626; /* Red for legal/gavel */
+              font-size: 24px;
+            }
+
+            .step-icon-small i {
+              font-size: 20px;
+            }
+
+            .step-icon-small:nth-child(1) i {
+              color: #DC2626; /* Red for step 1 */
+            }
+
+            .step-icon-small:nth-child(3) i {
+              color: #3B82F6; /* Blue for step 2 */
+            }
+
+            .step-icon-small:nth-child(5) i {
+              color: #8B5CF6; /* Purple for step 3 */
+            }
+
+            .privacy-icon i {
+              color: #059669; /* Green for privacy */
+              font-size: 12px;
+            }
+
+            .icon-btn i {
+              color: var(--neutral-600);
+              font-size: 16px;
+            }
+
+            .icon-btn:hover i {
+              color: var(--primary);
+            }
+
+            /* Reduced motion */
+            @media (prefers-reduced-motion: reduce) {
+              * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+              }
+            }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+            <div class="logo-container">
+              <div class="logo"><i class="fas fa-gavel"></i></div>
+              <h1 class="title">DocuGuide</h1>
+            </div>
+    <button class="icon-btn" id="closeBtn" aria-label="Close">
+      <i class="fas fa-times"></i>
+    </button>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Quick Guide -->
+    <div class="quick-guide">
+      <div class="guide-title">Legal Documents Made Simple</div>
+      
+              <div class="steps-compact">
+                <div class="step-compact">
+                  <div class="step-icon-small"><i class="fas fa-gavel"></i></div>
+                  <div class="step-text">Open DocuGuide</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step-compact">
+                  <div class="step-icon-small"><i class="fas fa-file-text"></i></div>
+                  <div class="step-text">Select legal text</div>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step-compact">
+                  <div class="step-icon-small"><i class="fas fa-brain"></i></div>
+                  <div class="step-text">Get legal guidance</div>
+                </div>
+              </div>
+    </div>
+
+    <!-- Privacy Badge -->
+    <div class="privacy-badge-compact">
+      <span class="privacy-icon"><i class="fas fa-lock"></i></span>
+      <span class="privacy-text">100% Private</span>
+    </div>
+
+    <!-- Primary Actions -->
+    <button class="primary-btn" id="openSidebarBtn">
+      Open DocuGuide Now 
+    </button>
+    
+    <button class="primary-btn" id="scanFormBtn" style="background: #10B981; margin-bottom: var(--space-sm);">
+      🧾 Scan & Explain Form
+    </button>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p class="footer-text">Powered by Chrome Built-in AI</p>
+  </footer>
+
+  <!-- Privacy Modal -->
+  <div class="modal-overlay" id="privacyModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Privacy Guarantee</h2>
+        <button class="modal-close" id="closePrivacyModal" aria-label="Close privacy modal" title="Close">
+          ×
+        </button>
+      </div>
+      <div class="modal-content">
+        <p><strong>Your data never leaves your device.</strong></p>
+        <br>
+        <p>FormBridge processes everything locally using your browser's built-in AI capabilities. No text, documents, or personal information is sent to external servers.</p>
+        <br>
+        <p>This means:</p>
+        <ul style="margin-left: 20px; margin-top: 8px;">
+          <li>Complete privacy protection</li>
+          <li>Works offline after initial setup</li>
+          <li>No data collection or tracking</li>
+          <li>No account required</li>
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary-btn" id="learnMoreBtn">Learn More</button>
+        <button class="secondary-btn" id="closeModalBtn" style="background: var(--error-red); color: var(--white); border-color: var(--error-red);">
+          ✕ Close
+        </button>
+        <button class="primary-btn" id="gotItBtn">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
