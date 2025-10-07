@@ -13,8 +13,7 @@
     "storage",
     "contextMenus",
     "sidePanel",
-    "scripting",
-    "ai"
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -29,7 +28,7 @@
       "js": [
         "content/form-detector.js",
         "content/form-guide.js",
-        "content/content-script-new.js"
+        "content/content-script.js"
       ],
       "run_at": "document_idle"
     }

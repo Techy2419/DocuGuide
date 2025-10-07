@@ -161,31 +161,12 @@ class FormDetector {
   }
 
   /**
-   * Use Chrome's built-in AI for lightweight form detection
+   * Detect form context using DOM analysis
    */
   async detectFormContext() {
-    try {
-      // Check if Chrome's AI is available
-      if (typeof chrome !== 'undefined' && chrome.ai && chrome.ai.languageModel) {
-        const capabilities = await chrome.ai.languageModel.capabilities();
-        
-        if (capabilities.summarization) {
-          const pageText = document.body.textContent.substring(0, 1000);
-          const session = await chrome.ai.languageModel.create({
-            systemPrompt: "You are a form detection assistant. Analyze the text and determine if this page contains forms.",
-            temperature: 0.1
-          });
-          
-          const result = await session.prompt(`Does this page contain forms? Text: ${pageText}`);
-          return result.includes('yes') || result.includes('form');
-        }
-      }
-    } catch (error) {
-      console.log('Chrome AI not available, using fallback detection');
-    }
-
-    // Fallback: simple DOM detection
-    return document.querySelectorAll('form, input, select, textarea').length > 0;
+    // Simple DOM detection for forms
+    const formElements = document.querySelectorAll('form, input, select, textarea');
+    return formElements.length > 0;
   }
 
   /**

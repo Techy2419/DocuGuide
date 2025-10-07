@@ -14,19 +14,9 @@ class AIManager {
    * Check if Chrome's built-in AI is available
    */
   async isChromeAIAvailable() {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.ai && chrome.ai.languageModel) {
-        const capabilities = await chrome.ai.languageModel.capabilities();
-        return {
-          available: true,
-          capabilities: capabilities
-        };
-      }
-      return { available: false };
-    } catch (error) {
-      console.log('Chrome AI not available:', error);
-      return { available: false };
-    }
+    // Chrome AI is not available in current versions
+    // We'll use Claude 4.5 for all AI operations
+    return { available: false };
   }
 
   /**

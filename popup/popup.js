@@ -10,7 +10,6 @@ const elements = {
   
   // Main actions
   openSidebarBtn: document.getElementById('openSidebarBtn'),
-  scanFormBtn: document.getElementById('scanFormBtn'),
   
   // Privacy modal
   privacyBadge: document.getElementById('privacyBadge'),
@@ -79,33 +78,6 @@ elements.openSidebarBtn?.addEventListener('click', async () => {
   }
 });
 
-// Form Guide functionality
-elements.scanFormBtn?.addEventListener('click', async () => {
-  console.log('Scanning form...');
-  
-  try {
-    // Get current tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) {
-      throw new Error('No active tab found');
-    }
-
-    // Send message to content script to scan form
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanForm' });
-    
-    if (response.success) {
-      console.log('Form scan completed successfully');
-      // The form guide will show results on the page
-      window.close();
-    } else {
-      throw new Error(response.error || 'Form scan failed');
-    }
-    
-  } catch (error) {
-    console.error('Form scan error:', error);
-    alert('Failed to scan form. Please make sure you are on a page with forms.');
-  }
-});
 
 // Privacy modal handling
 elements.privacyBadge?.addEventListener('click', () => {

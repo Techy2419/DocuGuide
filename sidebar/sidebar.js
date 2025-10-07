@@ -2811,21 +2811,21 @@ async function handleSmartAssistant() {
       `;
     }
 
-    // Send message to content script to start form wizard
-    chrome.tabs.sendMessage(tab.id, { action: 'startFormWizard' }, (response) => {
-      console.log('📥 Form Wizard response:', response);
+    // Send message to content script to scan form
+    chrome.tabs.sendMessage(tab.id, { action: 'scanForm' }, (response) => {
+      console.log('📥 Form Guide response:', response);
       
       if (chrome.runtime.lastError) {
         console.error('❌ Content script error:', chrome.runtime.lastError);
-        showError('Could not start form wizard. Please refresh and try again.');
+        showError('Could not start form guide. Please refresh and try again.');
       } else if (response && response.success) {
         if (response.noForms) {
           showToast(`Form Guide: ${response.siteType} site detected. Check the page for guidance.`, 'info');
         } else {
-          showToast('Form Guide started! Check the page for the completion wizard.', 'success');
+          showToast('Form Guide started! Check the page for form analysis.', 'success');
         }
       } else {
-        showError('Form wizard failed to start. Please try again.');
+        showError('Form guide failed to start. Please try again.');
       }
 
       // Reset button state
