@@ -28,6 +28,13 @@ if (window.docuGuideContentScriptLoaded) {
     try {
       console.log('🚀 Initializing new Form Guide...');
       
+      // Wait for classes to be available
+      if (typeof FormGuide === 'undefined' || typeof FormDetector === 'undefined' || typeof AIManager === 'undefined') {
+        console.log('⏳ Waiting for classes to load...');
+        setTimeout(initializeFormGuide, 100);
+        return;
+      }
+      
       // Create form guide instance
       const formGuide = new FormGuide();
       
@@ -46,6 +53,12 @@ if (window.docuGuideContentScriptLoaded) {
    */
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('📨 Content script received message:', message);
+    console.log('🔍 Available classes:', {
+      FormGuide: typeof FormGuide,
+      FormDetector: typeof FormDetector,
+      AIManager: typeof AIManager,
+      windowFormGuide: !!window.formGuide
+    });
     
     switch (message.action) {
       case 'scanForm':
@@ -67,10 +80,21 @@ if (window.docuGuideContentScriptLoaded) {
    */
   async function handleScanForm(sendResponse) {
     try {
+      console.log('🔍 Starting form scan...');
+      
+      // Check if form guide is available
       if (!window.formGuide) {
-        throw new Error('Form Guide not initialized');
+        console.log('⏳ Form Guide not ready, initializing...');
+        
+        // Try to initialize if not available
+        if (typeof FormGuide !== 'undefined' && typeof FormDetector !== 'undefined' && typeof AIManager !== 'undefined') {
+          window.formGuide = new FormGuide();
+        } else {
+          throw new Error('Form Guide classes not loaded. Please refresh the page.');
+        }
       }
       
+      // Perform the scan
       await window.formGuide.scanAndExplain();
       sendResponse({ success: true, message: 'Form scan completed' });
       
