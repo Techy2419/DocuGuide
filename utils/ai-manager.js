@@ -7,7 +7,7 @@ class AIManager {
   constructor() {
     this.openRouterApiKey = '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';
     this.openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    this.backendUrl = 'https://your-backend-server.com'; // Will be updated when backend is deployed
+    this.backendUrl = 'https://docuguide-backend.onrender.com';
   }
 
   /**
